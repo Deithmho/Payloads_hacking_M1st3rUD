@@ -32,6 +32,11 @@ for tema in TEMAS:
                 if encabezado not in texto:
                     errores.append(f'Falta {encabezado} en {doc}')
         else:
+            for encabezado in ('## 💉 Payloads básicos', '## 🧭 Payloads por contexto', '## 🔥 Payloads avanzados'):
+                if encabezado not in texto:
+                    errores.append(f'Falta {encabezado} en {doc}')
+            if texto.count('**Fuente:**') < 4:
+                errores.append(f'Faltan bloques de banco: {doc}')
             escenarios = len(re.findall(r'^### \d+\.', texto, re.M))
             if escenarios < 6:
                 errores.append(f'Faltan escenarios: {doc}')

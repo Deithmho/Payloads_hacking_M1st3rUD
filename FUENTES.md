@@ -8,6 +8,8 @@
 
 Cada capítulo enlaza sus fuentes. Los ejemplos están redactados de forma original y usan dominios, cuentas y objetos de prueba. Se evita copiar payloads largos sin explicar su contexto y se descartan atribuciones sin enlace verificable.
 
+Los bancos de `Payloads_hack/` agrupan variantes **básicas**, **por contexto** y **avanzadas**. Una lista de rutas, cabeceras o cuerpos representa alternativas que se prueban por separado; las precondiciones junto al bloque indican cuándo tienen sentido. Los escenarios guiados explican la señal mínima y los falsos positivos.
+
 ## Casos públicos útiles para razonar
 
 | Fuente | Técnica documentada | Qué enseña | Límite de la fuente |

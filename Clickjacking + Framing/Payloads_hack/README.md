@@ -8,7 +8,68 @@
 - Mantener igual método, sesión, cabeceras y cuerpo salvo el campo bajo prueba.
 - Usar un marcador único como `prueba-123` para distinguir reflejos y efectos de caché.
 
-## 🔬 Pruebas por escenario
+> **Lectura del banco:** cuando un bloque enumera varias URL, rutas, cabeceras o cuerpos, cada línea suele ser una alternativa. Elegir la variante que corresponde al motor, parser y flujo real.
+
+## 💉 Payloads básicos
+
+### Políticas que impiden framing
+
+```text
+Content-Security-Policy: frame-ancestors 'none'
+Content-Security-Policy: frame-ancestors 'self'
+X-Frame-Options: DENY
+X-Frame-Options: SAMEORIGIN
+```
+
+**Cuándo usarlo:** Son configuraciones alternativas; verificar la respuesta de la acción sensible en navegador.
+
+**Fuente:** [PortSwigger](https://portswigger.net/web-security/clickjacking).
+
+
+### Iframe visible de laboratorio
+
+```html
+<iframe src="https://{ORIGEN}/account/settings"
+        width="900" height="600"></iframe>
+```
+
+**Cuándo usarlo:** Confirmar que sesión propia y cookies permiten enmarcar la ruta; un iframe visible es solo control.
+
+**Fuente:** [PortSwigger](https://portswigger.net/web-security/clickjacking).
+
+
+## 🧭 Payloads por contexto
+
+### Marcador de alineación sin interceptar clics
+
+```html
+<iframe src="https://{ORIGEN}/account/settings"
+        style="position:absolute;top:0;left:0;width:900px;height:600px;opacity:.6"></iframe>
+<div style="position:absolute;top:80px;left:80px;pointer-events:none">
+  CANARY-{NONCE}
+</div>
+```
+
+**Cuándo usarlo:** Ajustar coordenadas en laboratorio; el marcador no intercepta el clic. Probar solo acción reversible de cuenta propia.
+
+**Fuente:** [PortSwigger](https://portswigger.net/web-security/clickjacking).
+
+
+## 🔥 Payloads avanzados
+
+### Sandbox frente a defensa JavaScript
+
+```html
+<iframe sandbox="allow-forms allow-scripts"
+        src="https://{ORIGEN}/account/settings"></iframe>
+```
+
+**Cuándo usarlo:** Puede cambiar cookies, navegación y frame busters. Solo hay hallazgo si se completa una acción protegida.
+
+**Fuente:** [PortSwigger](https://portswigger.net/web-security/clickjacking).
+
+
+## 🔬 Pruebas guiadas por escenario
 
 ### 1. Cabeceras de la acción sensible
 
@@ -22,7 +83,7 @@ Cookie: session={COOKIE_A}
 
 **Interpretación:** Evaluar CSP frame-ancestors y X-Frame-Options de esa ruta, no solo de la portada.
 
-**Fuente técnica:** [documentación de la técnica](https://portswigger.net/web-security/clickjacking).
+**Fuente técnica:** [PortSwigger](https://portswigger.net/web-security/clickjacking).
 
 ### 2. Iframe de laboratorio
 
@@ -34,20 +95,20 @@ Cookie: session={COOKIE_A}
 
 **Interpretación:** Comprobarlo en navegador con sesión propia; un iframe bloqueado no demuestra clickjacking.
 
-**Fuente técnica:** [documentación de la técnica](https://portswigger.net/web-security/clickjacking).
+**Fuente técnica:** [PortSwigger](https://portswigger.net/web-security/clickjacking).
 
 ### 3. Marco con marcador visible
 
 **Objetivo:** Relacionar coordenadas de una acción reversible con el marco.
 
 ```html
-<div style="position:absolute;top:80px;left:80px">CANARY-{NONCE}</div>
-<iframe src="https://{ORIGEN}/account/settings" style="width:900px;height:600px;opacity:.6"></iframe>
+<iframe src="https://{ORIGEN}/account/settings" style="position:absolute;top:0;left:0;width:900px;height:600px;opacity:.6"></iframe>
+<div style="position:absolute;top:80px;left:80px;pointer-events:none">CANARY-{NONCE}</div>
 ```
 
-**Interpretación:** La transparencia facilita revisión; demostrar interacción real solo sobre configuración propia reversible.
+**Interpretación:** Ajustar coordenadas tras observar la página. El marcador no intercepta el clic; demostrar solo una acción propia reversible.
 
-**Fuente técnica:** [documentación de la técnica](https://portswigger.net/web-security/clickjacking).
+**Fuente técnica:** [PortSwigger](https://portswigger.net/web-security/clickjacking).
 
 ### 4. CSP frame-ancestors
 
@@ -59,7 +120,7 @@ Content-Security-Policy: frame-ancestors 'self' https://{ORIGEN_CONFIABLE}
 
 **Interpretación:** La directiva debe llegar en la respuesta enmarcada. No inferir protección por meta tag.
 
-**Fuente técnica:** [documentación de la técnica](https://portswigger.net/web-security/clickjacking).
+**Fuente técnica:** [PortSwigger](https://portswigger.net/web-security/clickjacking).
 
 ### 5. X-Frame-Options
 
@@ -72,7 +133,7 @@ X-Frame-Options: SAMEORIGIN
 
 **Interpretación:** Son valores alternativos, no dos cabeceras simultáneas. Verificar comportamiento en navegador objetivo.
 
-**Fuente técnica:** [documentación de la técnica](https://portswigger.net/web-security/clickjacking).
+**Fuente técnica:** [PortSwigger](https://portswigger.net/web-security/clickjacking).
 
 ### 6. Variación por ruta
 
@@ -85,7 +146,7 @@ GET /account/settings/confirm
 
 **Interpretación:** Ambas rutas requieren sesión propia; una cabecera distinta solo importa si se puede inducir una acción.
 
-**Fuente técnica:** [documentación de la técnica](https://portswigger.net/web-security/clickjacking).
+**Fuente técnica:** [PortSwigger](https://portswigger.net/web-security/clickjacking).
 
 ### 7. Frame con sandbox
 
@@ -97,7 +158,7 @@ GET /account/settings/confirm
 
 **Interpretación:** Algunos frame busters fallan con sandbox; confirmar que cookies y acción funcionan antes de concluir.
 
-**Fuente técnica:** [documentación de la técnica](https://portswigger.net/web-security/clickjacking).
+**Fuente técnica:** [PortSwigger](https://portswigger.net/web-security/clickjacking).
 
 ### 8. Control de interacción
 
@@ -110,7 +171,7 @@ Prueba: repetir con iframe y botón canary alineado.
 
 **Interpretación:** Registrar estado antes/después y revertir. La posibilidad de enmarcar sin clic inducido no confirma impacto.
 
-**Fuente técnica:** [documentación de la técnica](https://portswigger.net/web-security/clickjacking).
+**Fuente técnica:** [PortSwigger](https://portswigger.net/web-security/clickjacking).
 
 ## ✅ Evidencia mínima
 

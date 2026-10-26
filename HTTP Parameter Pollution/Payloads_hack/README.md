@@ -8,7 +8,70 @@
 - Mantener igual método, sesión, cabeceras y cuerpo salvo el campo bajo prueba.
 - Usar un marcador único como `prueba-123` para distinguir reflejos y efectos de caché.
 
-## 🔬 Pruebas por escenario
+> **Lectura del banco:** cuando un bloque enumera varias URL, rutas, cabeceras o cuerpos, cada línea suele ser una alternativa. Elegir la variante que corresponde al motor, parser y flujo real.
+
+## 💉 Payloads básicos
+
+### Duplicados de query y orden
+
+```text
+?id={ID_PROPIO}&id={ID_CONTROLADO_B}
+?id={ID_CONTROLADO_B}&id={ID_PROPIO}
+?role=user&role=admin
+?role=admin&role=user
+```
+
+**Cuándo usarlo:** Usar objetos de A y B propios; primer/último/lista depende del parser y no es fallo por sí solo.
+
+**Fuente:** [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/HTTP%20Parameter%20Pollution/README.md).
+
+
+### Representaciones de array
+
+```text
+?id[]={ID_PROPIO}&id[]={ID_CONTROLADO_B}
+?id[0]={ID_PROPIO}&id[1]={ID_CONTROLADO_B}
+?id={ID_PROPIO},{ID_CONTROLADO_B}
+```
+
+**Cuándo usarlo:** Solo si el framework acepta ese formato. La autorización debe aplicarse a cada objeto procesado.
+
+**Fuente:** [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/HTTP%20Parameter%20Pollution/README.md).
+
+
+## 🧭 Payloads por contexto
+
+### Query frente a body
+
+```http
+POST /api/test-object?id={ID_PROPIO} HTTP/1.1
+Host: {ORIGEN}
+Authorization: Bearer {TOKEN_A}
+Content-Type: application/x-www-form-urlencoded
+
+id={ID_CONTROLADO_B}
+```
+
+**Cuándo usarlo:** Comparar con cada ID por separado y comprobar qué valor usó el backend.
+
+**Fuente:** [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/HTTP%20Parameter%20Pollution/README.md).
+
+
+## 🔥 Payloads avanzados
+
+### JSON con clave duplicada
+
+```text
+{"id":"{ID_PROPIO}","id":"{ID_CONTROLADO_B}"}
+{"role":"user","role":"admin"}
+```
+
+**Cuándo usarlo:** JSON con claves repetidas tiene semántica dependiente del parser; confirmar discrepancia entre capas y efecto.
+
+**Fuente:** [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/HTTP%20Parameter%20Pollution/README.md).
+
+
+## 🔬 Pruebas guiadas por escenario
 
 ### 1. Duplicado A-B
 
@@ -19,22 +82,25 @@ GET /api/search?q=canary-A&q=canary-B HTTP/1.1
 Host: {ORIGEN}
 ```
 
-**Interpretación:** Comparar con A y B por separado; la precedencia es propiedad del parser, no hallazgo por sí sola.
+**Interpretación:** Comparar con A y B por separado y luego invertir el orden; la precedencia del parser no es hallazgo por sí sola.
 
-**Fuente técnica:** [documentación de la técnica](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/HTTP%20Parameter%20Pollution).
+**Fuente técnica:** [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/HTTP%20Parameter%20Pollution).
 
-### 2. Duplicado B-A
+### 2. Duplicado en cuerpo de formulario
 
-**Objetivo:** Confirmar que el orden cambia la selección.
+**Objetivo:** Comparar duplicados en el parser form-urlencoded frente a los de query.
 
 ```http
-GET /api/search?q=canary-B&q=canary-A HTTP/1.1
+POST /api/search HTTP/1.1
 Host: {ORIGEN}
+Content-Type: application/x-www-form-urlencoded
+
+q=canary-A&q=canary-B
 ```
 
-**Interpretación:** Si ambos resultados cambian de manera consistente, registrar la semántica antes de buscar un control de seguridad.
+**Interpretación:** Repetir en orden inverso y con valores individuales; confirmar qué valor procesa la lógica, no solo cuál refleja.
 
-**Fuente técnica:** [documentación de la técnica](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/HTTP%20Parameter%20Pollution).
+**Fuente técnica:** [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/HTTP%20Parameter%20Pollution).
 
 ### 3. Query frente a body
 
@@ -50,7 +116,7 @@ q=canary-B
 
 **Interpretación:** Una capa puede validar query y otra usar body; confirmar cuál llega al sink.
 
-**Fuente técnica:** [documentación de la técnica](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/HTTP%20Parameter%20Pollution).
+**Fuente técnica:** [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/HTTP%20Parameter%20Pollution).
 
 ### 4. Formato array con corchetes
 
@@ -63,7 +129,7 @@ Host: {ORIGEN}
 
 **Interpretación:** Puede resultar lista, error o clave literal; no asumir comportamiento de PHP/Express sin evidencia.
 
-**Fuente técnica:** [documentación de la técnica](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/HTTP%20Parameter%20Pollution).
+**Fuente técnica:** [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/HTTP%20Parameter%20Pollution).
 
 ### 5. Notación índice
 
@@ -76,7 +142,7 @@ Host: {ORIGEN}
 
 **Interpretación:** Registrar objeto realmente interpretado y compararlo con la política aplicada.
 
-**Fuente técnica:** [documentación de la técnica](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/HTTP%20Parameter%20Pollution).
+**Fuente técnica:** [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/HTTP%20Parameter%20Pollution).
 
 ### 6. Query repetida con codificación
 
@@ -89,7 +155,7 @@ Host: {ORIGEN}
 
 **Interpretación:** `%71` es `q`; un desacuerdo de parsers solo importa si el validador y el sink usan valores distintos.
 
-**Fuente técnica:** [documentación de la técnica](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/HTTP%20Parameter%20Pollution).
+**Fuente técnica:** [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/HTTP%20Parameter%20Pollution).
 
 ### 7. Separador punto y coma
 
@@ -102,7 +168,7 @@ Host: {ORIGEN}
 
 **Interpretación:** Muchos parsers modernos tratan `;` como dato; verificar ambos lados sin asumir bypass.
 
-**Fuente técnica:** [documentación de la técnica](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/HTTP%20Parameter%20Pollution).
+**Fuente técnica:** [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/HTTP%20Parameter%20Pollution).
 
 ## ✅ Evidencia mínima
 

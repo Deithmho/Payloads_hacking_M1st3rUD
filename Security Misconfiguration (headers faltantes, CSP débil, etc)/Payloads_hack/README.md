@@ -8,7 +8,70 @@
 - Mantener igual método, sesión, cabeceras y cuerpo salvo el campo bajo prueba.
 - Usar un marcador único como `prueba-123` para distinguir reflejos y efectos de caché.
 
-## 🔬 Pruebas por escenario
+> **Lectura del banco:** cuando un bloque enumera varias URL, rutas, cabeceras o cuerpos, cada línea suele ser una alternativa. Elegir la variante que corresponde al motor, parser y flujo real.
+
+## 💉 Payloads básicos
+
+### Cabeceras de respuestas relevantes
+
+```text
+Strict-Transport-Security
+Content-Security-Policy
+X-Content-Type-Options
+Cache-Control
+X-Frame-Options
+```
+
+**Cuándo usarlo:** Revisar respuestas finales de funciones sensibles; ausencia aislada no demuestra impacto.
+
+**Fuente:** [OWASP Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html).
+
+
+### Lectura rápida de cabeceras
+
+```bash
+curl -s -D - -o /dev/null "https://{ORIGEN}/account"
+curl -s -D - -o /dev/null "https://{ORIGEN}/api/v1/me"
+```
+
+**Cuándo usarlo:** La ruta privada requiere sesión propia; la respuesta anónima puede ser distinta.
+
+**Fuente:** [OWASP Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html).
+
+
+## 🧭 Payloads por contexto
+
+### Cache de una respuesta autenticada
+
+```http
+GET /api/v1/me HTTP/1.1
+Host: {ORIGEN}
+Authorization: Bearer {TOKEN_A}
+```
+
+**Cuándo usarlo:** Observar Cache-Control, Vary y una lectura desde B propio antes de declarar mezcla de sesiones.
+
+**Fuente:** [OWASP API Security](https://api-security.owasp.org/editions/2023/en/0xa8-security-misconfiguration/).
+
+
+## 🔥 Payloads avanzados
+
+### Método TRACE y debug acotado
+
+```text
+TRACE / HTTP/1.1
+Host: {ORIGEN}
+X-Canary: {NONCE}
+
+GET /{RUTA_PROPIA}?debug=true
+```
+
+**Cuándo usarlo:** Un eco TRACE o stack genérico no basta: documentar efecto explotable y política del programa.
+
+**Fuente:** [PortSwigger](https://portswigger.net/web-security/information-disclosure/exploiting).
+
+
+## 🔬 Pruebas guiadas por escenario
 
 ### 1. HSTS en respuesta HTTPS
 
@@ -21,7 +84,7 @@ Host: {ORIGEN}
 
 **Interpretación:** Evaluar Strict-Transport-Security en HTTPS; ausencia sola no demuestra explotación.
 
-**Fuente técnica:** [documentación de la técnica](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html).
+**Fuente técnica:** [OWASP Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html).
 
 ### 2. CSP en página sensible
 
@@ -34,7 +97,7 @@ Host: {ORIGEN}
 
 **Interpretación:** Comparar Content-Security-Policy real con cargas de la página; CSP ausente es defensa faltante, no XSS.
 
-**Fuente técnica:** [documentación de la técnica](https://cheatsheetseries.owasp.org/cheatsheets/Content_Security_Policy_Cheat_Sheet.html).
+**Fuente técnica:** [OWASP Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Content_Security_Policy_Cheat_Sheet.html).
 
 ### 3. Cache-Control en datos de sesión
 
@@ -48,7 +111,7 @@ Authorization: Bearer {TOKEN_A}
 
 **Interpretación:** Registrar Cache-Control y comportamiento del caché; header ausente sin mezcla de usuarios no basta.
 
-**Fuente técnica:** [documentación de la técnica](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html).
+**Fuente técnica:** [OWASP Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html).
 
 ### 4. Método TRACE
 
@@ -62,7 +125,7 @@ X-Canary: {NONCE}
 
 **Interpretación:** Eco de una cabecera no prueba por sí mismo robo de sesión; correlacionar con navegador y controles.
 
-**Fuente técnica:** [documentación de la técnica](https://portswigger.net/web-security/information-disclosure/exploiting).
+**Fuente técnica:** [PortSwigger](https://portswigger.net/web-security/information-disclosure/exploiting).
 
 ### 5. Modo debug
 
@@ -75,7 +138,7 @@ Host: {ORIGEN}
 
 **Interpretación:** Debe documentarse dato sensible real o funcionalidad peligrosa; un stack trace genérico no siempre es crítico.
 
-**Fuente técnica:** [documentación de la técnica](https://portswigger.net/web-security/information-disclosure).
+**Fuente técnica:** [PortSwigger](https://portswigger.net/web-security/information-disclosure).
 
 ### 6. Métodos anunciados
 
@@ -89,7 +152,7 @@ Authorization: Bearer {TOKEN_A}
 
 **Interpretación:** Allow es inventario; probar controles por método con objeto propio para concluir.
 
-**Fuente técnica:** [documentación de la técnica](https://api-security.owasp.org/editions/2023/en/0xa8-security-misconfiguration/).
+**Fuente técnica:** [OWASP API Security](https://api-security.owasp.org/editions/2023/en/0xa8-security-misconfiguration/).
 
 ### 7. Content-Type y nosniff
 
@@ -102,7 +165,7 @@ Host: {ORIGEN}
 
 **Interpretación:** Buscar Content-Type adecuado y X-Content-Type-Options; confirmar un contexto de ejecución real.
 
-**Fuente técnica:** [documentación de la técnica](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html).
+**Fuente técnica:** [OWASP Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html).
 
 ## ✅ Evidencia mínima
 

