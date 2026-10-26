@@ -5,14 +5,14 @@ Este repositorio es una guía de trabajo autorizada. Una contribución útil exp
 ## Estructura de cada tema
 
 ```text
-Categoria/Tema/
+Nombre de la vulnerabilidad/
 ├── Descripcion/
 │   └── README.md
 └── Payloads_hack/
     └── README.md
 ```
 
-Mantener **exactamente esas dos subcarpetas**. El índice principal debe enlazar ambas. Para añadir un tema, editar `tools/catalogo.py`, ejecutar `python3 tools/generar_catalogo.py` y luego `python3 tools/validar_catalogo.py`.
+Mantener **exactamente esas dos subcarpetas**. El índice principal debe enlazar ambas. Para añadir un tema, editar `tools/catalogo.py` y el módulo `tools/payloads_*.py` de su área, ejecutar `python3 tools/generar_catalogo.py` y luego `python3 tools/validar_catalogo.py`.
 
 ## Criterios de aceptación
 

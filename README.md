@@ -1,6 +1,6 @@
 # 🛡️ Payloads Hacking M1st3rUD
 
-**Manual de campo en español para pentesting web, APIs y bug bounty autorizado.** Cada tema separa el mecanismo, contexto, variantes, evidencia y corrección de los ejemplos técnicos listos para adaptar. El catálogo contiene **61 temas**, incluyendo las categorías solapadas solicitadas: una misma raíz técnica puede tener guías de aplicación distintas.
+**Manual de campo en español para pentesting web, APIs y bug bounty autorizado.** Cada tema separa el mecanismo, contexto, variantes, evidencia y corrección de los ejemplos técnicos listos para adaptar. El catálogo contiene **61 temas y 516 escenarios de prueba**, incluyendo las categorías solapadas solicitadas: una misma raíz técnica puede tener guías de aplicación distintas.
 
 > **Uso ético:** emplear solo en laboratorios, activos propios o programas con autorización y alcance vigentes. Respetar límites de frecuencia, datos, concurrencia y divulgación. Los ejemplos son pruebas mínimas; un resultado llamativo no equivale a una vulnerabilidad validada.
 
@@ -11,86 +11,86 @@
 3. Comparar con un control negativo y registrar la evidencia mínima; detenerse antes de afectar datos ajenos.
 4. Calcular severidad a partir del impacto comprobado, no del nombre de la técnica.
 
-Los directorios de cada tema contienen **exactamente dos subcarpetas**, en este orden editorial: `Descripcion/` y `Payloads_hack/`.
+Cada vulnerabilidad tiene su carpeta en la raíz, con el nombre de la lista solicitada y **exactamente dos subcarpetas**: `Descripcion/` y `Payloads_hack/`. En nombres que contenían `/`, se usa ` - ` porque la barra separa directorios en Git.
 
-## 🔐 Autenticación, sesión y autorización
+## 🔐 Autenticación y sesión
 
-1. [Autenticación rota](01-Autenticacion-y-sesion/autenticacion-rota/Descripcion/README.md) · [payloads](01-Autenticacion-y-sesion/autenticacion-rota/Payloads_hack/README.md)
-2. [Ataques contra JWT](01-Autenticacion-y-sesion/jwt/Descripcion/README.md) · [payloads](01-Autenticacion-y-sesion/jwt/Payloads_hack/README.md)
-3. [Configuración insegura de OAuth](01-Autenticacion-y-sesion/oauth/Descripcion/README.md) · [payloads](01-Autenticacion-y-sesion/oauth/Payloads_hack/README.md)
-4. [Fallos de validación SAML](01-Autenticacion-y-sesion/saml/Descripcion/README.md) · [payloads](01-Autenticacion-y-sesion/saml/Payloads_hack/README.md)
-5. [Fijación de sesión](01-Autenticacion-y-sesion/fijacion-sesion/Descripcion/README.md) · [payloads](01-Autenticacion-y-sesion/fijacion-sesion/Payloads_hack/README.md)
-6. [Envenenamiento del enlace de recuperación](01-Autenticacion-y-sesion/reset-password-poisoning/Descripcion/README.md) · [payloads](01-Autenticacion-y-sesion/reset-password-poisoning/Payloads_hack/README.md)
-7. [Bypass de MFA](01-Autenticacion-y-sesion/mfa-bypass/Descripcion/README.md) · [payloads](01-Autenticacion-y-sesion/mfa-bypass/Payloads_hack/README.md)
-8. [IDOR](01-Autenticacion-y-sesion/idor/Descripcion/README.md) · [payloads](01-Autenticacion-y-sesion/idor/Payloads_hack/README.md)
-9. [Control de acceso roto y elevación de privilegios](01-Autenticacion-y-sesion/control-acceso/Descripcion/README.md) · [payloads](01-Autenticacion-y-sesion/control-acceso/Payloads_hack/README.md)
-10. [Mass assignment](01-Autenticacion-y-sesion/mass-assignment/Descripcion/README.md) · [payloads](01-Autenticacion-y-sesion/mass-assignment/Payloads_hack/README.md)
+1. [Broken Authentication](Broken%20Authentication/Descripcion/README.md) · [payloads](Broken%20Authentication/Payloads_hack/README.md)
+2. [JWT Attacks (alg none, kid injection, weak secret, JWK injection)](JWT%20Attacks%20%28alg%20none%2C%20kid%20injection%2C%20weak%20secret%2C%20JWK%20injection%29/Descripcion/README.md) · [payloads](JWT%20Attacks%20%28alg%20none%2C%20kid%20injection%2C%20weak%20secret%2C%20JWK%20injection%29/Payloads_hack/README.md)
+3. [OAuth Misconfiguration](OAuth%20Misconfiguration/Descripcion/README.md) · [payloads](OAuth%20Misconfiguration/Payloads_hack/README.md)
+4. [SAML Injection](SAML%20Injection/Descripcion/README.md) · [payloads](SAML%20Injection/Payloads_hack/README.md)
+5. [Session Fixation](Session%20Fixation/Descripcion/README.md) · [payloads](Session%20Fixation/Payloads_hack/README.md)
+6. [Password Reset Poisoning](Password%20Reset%20Poisoning/Descripcion/README.md) · [payloads](Password%20Reset%20Poisoning/Payloads_hack/README.md)
+7. [2FA - MFA Bypass](2FA%20-%20MFA%20Bypass/Descripcion/README.md) · [payloads](2FA%20-%20MFA%20Bypass/Payloads_hack/README.md)
+8. [Insecure Direct Object Reference (IDOR)](Insecure%20Direct%20Object%20Reference%20%28IDOR%29/Descripcion/README.md) · [payloads](Insecure%20Direct%20Object%20Reference%20%28IDOR%29/Payloads_hack/README.md)
+9. [Broken Access Control - Privilege Escalation](Broken%20Access%20Control%20-%20Privilege%20Escalation/Descripcion/README.md) · [payloads](Broken%20Access%20Control%20-%20Privilege%20Escalation/Payloads_hack/README.md)
+10. [Mass Assignment](Mass%20Assignment/Descripcion/README.md) · [payloads](Mass%20Assignment/Payloads_hack/README.md)
 
 ## 💉 Inyecciones
 
-1. [SQL injection](02-Inyecciones/sql-injection/Descripcion/README.md) · [payloads](02-Inyecciones/sql-injection/Payloads_hack/README.md)
-2. [NoSQL injection](02-Inyecciones/nosql-injection/Descripcion/README.md) · [payloads](02-Inyecciones/nosql-injection/Payloads_hack/README.md)
-3. [Inyección de comandos del sistema](02-Inyecciones/command-injection/Descripcion/README.md) · [payloads](02-Inyecciones/command-injection/Payloads_hack/README.md)
-4. [XML External Entity (XXE)](02-Inyecciones/xxe/Descripcion/README.md) · [payloads](02-Inyecciones/xxe/Payloads_hack/README.md)
-5. [Server-Side Template Injection (SSTI)](02-Inyecciones/ssti/Descripcion/README.md) · [payloads](02-Inyecciones/ssti/Payloads_hack/README.md)
-6. [LDAP injection](02-Inyecciones/ldap-injection/Descripcion/README.md) · [payloads](02-Inyecciones/ldap-injection/Payloads_hack/README.md)
-7. [CRLF injection](02-Inyecciones/crlf-injection/Descripcion/README.md) · [payloads](02-Inyecciones/crlf-injection/Payloads_hack/README.md)
-8. [Header injection](02-Inyecciones/header-injection/Descripcion/README.md) · [payloads](02-Inyecciones/header-injection/Payloads_hack/README.md)
-9. [Host header injection](02-Inyecciones/host-header-injection/Descripcion/README.md) · [payloads](02-Inyecciones/host-header-injection/Payloads_hack/README.md)
-10. [Email header injection](02-Inyecciones/email-header-injection/Descripcion/README.md) · [payloads](02-Inyecciones/email-header-injection/Payloads_hack/README.md)
-11. [XPath injection](02-Inyecciones/xpath-injection/Descripcion/README.md) · [payloads](02-Inyecciones/xpath-injection/Payloads_hack/README.md)
-12. [Code injection / eval](02-Inyecciones/code-injection/Descripcion/README.md) · [payloads](02-Inyecciones/code-injection/Payloads_hack/README.md)
+1. [SQL Injection (incluyendo Blind, Time-based, Out-of-band)](SQL%20Injection%20%28incluyendo%20Blind%2C%20Time-based%2C%20Out-of-band%29/Descripcion/README.md) · [payloads](SQL%20Injection%20%28incluyendo%20Blind%2C%20Time-based%2C%20Out-of-band%29/Payloads_hack/README.md)
+2. [NoSQL Injection](NoSQL%20Injection/Descripcion/README.md) · [payloads](NoSQL%20Injection/Payloads_hack/README.md)
+3. [Command Injection - OS Command Injection](Command%20Injection%20-%20OS%20Command%20Injection/Descripcion/README.md) · [payloads](Command%20Injection%20-%20OS%20Command%20Injection/Payloads_hack/README.md)
+4. [XXE (XML External Entity)](XXE%20%28XML%20External%20Entity%29/Descripcion/README.md) · [payloads](XXE%20%28XML%20External%20Entity%29/Payloads_hack/README.md)
+5. [SSTI (Server-Side Template Injection)](SSTI%20%28Server-Side%20Template%20Injection%29/Descripcion/README.md) · [payloads](SSTI%20%28Server-Side%20Template%20Injection%29/Payloads_hack/README.md)
+6. [LDAP Injection](LDAP%20Injection/Descripcion/README.md) · [payloads](LDAP%20Injection/Payloads_hack/README.md)
+7. [CRLF Injection](CRLF%20Injection/Descripcion/README.md) · [payloads](CRLF%20Injection/Payloads_hack/README.md)
+8. [Header Injection](Header%20Injection/Descripcion/README.md) · [payloads](Header%20Injection/Payloads_hack/README.md)
+9. [Host Header Injection](Host%20Header%20Injection/Descripcion/README.md) · [payloads](Host%20Header%20Injection/Payloads_hack/README.md)
+10. [Email Header Injection](Email%20Header%20Injection/Descripcion/README.md) · [payloads](Email%20Header%20Injection/Payloads_hack/README.md)
+11. [XPath Injection](XPath%20Injection/Descripcion/README.md) · [payloads](XPath%20Injection/Payloads_hack/README.md)
+12. [Code Injection (Eval - RCE)](Code%20Injection%20%28Eval%20-%20RCE%29/Descripcion/README.md) · [payloads](Code%20Injection%20%28Eval%20-%20RCE%29/Payloads_hack/README.md)
 
-## 🧭 Cliente y navegador
+## 🧭 Client-Side
 
-1. [Cross-Site Scripting (XSS)](03-Cliente/xss/Descripcion/README.md) · [payloads](03-Cliente/xss/Payloads_hack/README.md)
-2. [Cross-Site Request Forgery (CSRF)](03-Cliente/csrf/Descripcion/README.md) · [payloads](03-Cliente/csrf/Payloads_hack/README.md)
-3. [Clickjacking](03-Cliente/clickjacking/Descripcion/README.md) · [payloads](03-Cliente/clickjacking/Payloads_hack/README.md)
-4. [CORS mal configurado](03-Cliente/cors/Descripcion/README.md) · [payloads](03-Cliente/cors/Payloads_hack/README.md)
-5. [Prototype pollution](03-Cliente/prototype-pollution/Descripcion/README.md) · [payloads](03-Cliente/prototype-pollution/Payloads_hack/README.md)
-6. [Open redirect](03-Cliente/open-redirect/Descripcion/README.md) · [payloads](03-Cliente/open-redirect/Payloads_hack/README.md)
-7. [Cross-Site WebSocket Hijacking](03-Cliente/websocket-hijacking/Descripcion/README.md) · [payloads](03-Cliente/websocket-hijacking/Payloads_hack/README.md)
-8. [Vulnerabilidades de postMessage](03-Cliente/postmessage/Descripcion/README.md) · [payloads](03-Cliente/postmessage/Payloads_hack/README.md)
-9. [DOM clobbering](03-Cliente/dom-clobbering/Descripcion/README.md) · [payloads](03-Cliente/dom-clobbering/Payloads_hack/README.md)
+1. [XSS (Reflected, Stored, DOM-based)](XSS%20%28Reflected%2C%20Stored%2C%20DOM-based%29/Descripcion/README.md) · [payloads](XSS%20%28Reflected%2C%20Stored%2C%20DOM-based%29/Payloads_hack/README.md)
+2. [CSRF](CSRF/Descripcion/README.md) · [payloads](CSRF/Payloads_hack/README.md)
+3. [Clickjacking](Clickjacking/Descripcion/README.md) · [payloads](Clickjacking/Payloads_hack/README.md)
+4. [CORS Misconfiguration](CORS%20Misconfiguration/Descripcion/README.md) · [payloads](CORS%20Misconfiguration/Payloads_hack/README.md)
+5. [Prototype Pollution](Prototype%20Pollution/Descripcion/README.md) · [payloads](Prototype%20Pollution/Payloads_hack/README.md)
+6. [Open Redirect](Open%20Redirect/Descripcion/README.md) · [payloads](Open%20Redirect/Payloads_hack/README.md)
+7. [WebSocket Hijacking](WebSocket%20Hijacking/Descripcion/README.md) · [payloads](WebSocket%20Hijacking/Payloads_hack/README.md)
+8. [PostMessage Vulnerabilities](PostMessage%20Vulnerabilities/Descripcion/README.md) · [payloads](PostMessage%20Vulnerabilities/Payloads_hack/README.md)
+9. [DOM Clobbering](DOM%20Clobbering/Descripcion/README.md) · [payloads](DOM%20Clobbering/Payloads_hack/README.md)
 
-## 🧱 Servidor, peticiones y lógica
+## 🧱 Server-Side Request y lógica
 
-1. [Server-Side Request Forgery (SSRF)](04-Servidor-y-logica/ssrf/Descripcion/README.md) · [payloads](04-Servidor-y-logica/ssrf/Payloads_hack/README.md)
-2. [Deserialización insegura](04-Servidor-y-logica/deserializacion/Descripcion/README.md) · [payloads](04-Servidor-y-logica/deserializacion/Payloads_hack/README.md)
-3. [Race condition](04-Servidor-y-logica/race-condition/Descripcion/README.md) · [payloads](04-Servidor-y-logica/race-condition/Payloads_hack/README.md)
-4. [Fallos de lógica de negocio](04-Servidor-y-logica/business-logic/Descripcion/README.md) · [payloads](04-Servidor-y-logica/business-logic/Payloads_hack/README.md)
-5. [Bypass de rate limit](04-Servidor-y-logica/rate-limit-bypass/Descripcion/README.md) · [payloads](04-Servidor-y-logica/rate-limit-bypass/Payloads_hack/README.md)
-6. [Path Traversal y LFI](04-Servidor-y-logica/path-traversal-lfi/Descripcion/README.md) · [payloads](04-Servidor-y-logica/path-traversal-lfi/Payloads_hack/README.md)
-7. [Remote File Inclusion (RFI)](04-Servidor-y-logica/rfi/Descripcion/README.md) · [payloads](04-Servidor-y-logica/rfi/Payloads_hack/README.md)
-8. [Vulnerabilidades de subida de archivos](04-Servidor-y-logica/file-upload/Descripcion/README.md) · [payloads](04-Servidor-y-logica/file-upload/Payloads_hack/README.md)
-9. [HTTP Request Smuggling](04-Servidor-y-logica/request-smuggling/Descripcion/README.md) · [payloads](04-Servidor-y-logica/request-smuggling/Payloads_hack/README.md)
-10. [HTTP Parameter Pollution](04-Servidor-y-logica/http-parameter-pollution/Descripcion/README.md) · [payloads](04-Servidor-y-logica/http-parameter-pollution/Payloads_hack/README.md)
-11. [Web cache poisoning](04-Servidor-y-logica/web-cache-poisoning/Descripcion/README.md) · [payloads](04-Servidor-y-logica/web-cache-poisoning/Payloads_hack/README.md)
-12. [Web Cache Deception](04-Servidor-y-logica/web-cache-deception/Descripcion/README.md) · [payloads](04-Servidor-y-logica/web-cache-deception/Payloads_hack/README.md)
+1. [SSRF (Server-Side Request Forgery)](SSRF%20%28Server-Side%20Request%20Forgery%29/Descripcion/README.md) · [payloads](SSRF%20%28Server-Side%20Request%20Forgery%29/Payloads_hack/README.md)
+2. [Insecure Deserialization](Insecure%20Deserialization/Descripcion/README.md) · [payloads](Insecure%20Deserialization/Payloads_hack/README.md)
+3. [Race Condition](Race%20Condition/Descripcion/README.md) · [payloads](Race%20Condition/Payloads_hack/README.md)
+4. [Business Logic Flaws](Business%20Logic%20Flaws/Descripcion/README.md) · [payloads](Business%20Logic%20Flaws/Payloads_hack/README.md)
+5. [Rate Limit Bypass](Rate%20Limit%20Bypass/Descripcion/README.md) · [payloads](Rate%20Limit%20Bypass/Payloads_hack/README.md)
+6. [Path Traversal - Local File Inclusion (LFI)](Path%20Traversal%20-%20Local%20File%20Inclusion%20%28LFI%29/Descripcion/README.md) · [payloads](Path%20Traversal%20-%20Local%20File%20Inclusion%20%28LFI%29/Payloads_hack/README.md)
+7. [Remote File Inclusion (RFI)](Remote%20File%20Inclusion%20%28RFI%29/Descripcion/README.md) · [payloads](Remote%20File%20Inclusion%20%28RFI%29/Payloads_hack/README.md)
+8. [File Upload Vulnerabilities](File%20Upload%20Vulnerabilities/Descripcion/README.md) · [payloads](File%20Upload%20Vulnerabilities/Payloads_hack/README.md)
+9. [Request Smuggling (HTTP Request Smuggling)](Request%20Smuggling%20%28HTTP%20Request%20Smuggling%29/Descripcion/README.md) · [payloads](Request%20Smuggling%20%28HTTP%20Request%20Smuggling%29/Payloads_hack/README.md)
+10. [HTTP Parameter Pollution](HTTP%20Parameter%20Pollution/Descripcion/README.md) · [payloads](HTTP%20Parameter%20Pollution/Payloads_hack/README.md)
+11. [Cache Poisoning](Cache%20Poisoning/Descripcion/README.md) · [payloads](Cache%20Poisoning/Payloads_hack/README.md)
+12. [Web Cache Deception](Web%20Cache%20Deception/Descripcion/README.md) · [payloads](Web%20Cache%20Deception/Payloads_hack/README.md)
 
-## 🔌 API y GraphQL
+## 🔌 API específicas
 
-1. [GraphQL: introspección, inyección y autorización](05-API/graphql/Descripcion/README.md) · [payloads](05-API/graphql/Payloads_hack/README.md)
-2. [Exposición de API keys y secretos](05-API/api-key-leakage/Descripcion/README.md) · [payloads](05-API/api-key-leakage/Payloads_hack/README.md)
-3. [BOLA: autorización rota por objeto](05-API/bola/Descripcion/README.md) · [payloads](05-API/bola/Payloads_hack/README.md)
-4. [BFLA: autorización rota por función](05-API/bfla/Descripcion/README.md) · [payloads](05-API/bfla/Payloads_hack/README.md)
-5. [Exposición excesiva de datos en API](05-API/excessive-data-exposure/Descripcion/README.md) · [payloads](05-API/excessive-data-exposure/Payloads_hack/README.md)
-6. [Límites insuficientes de recursos en API](05-API/resource-limits/Descripcion/README.md) · [payloads](05-API/resource-limits/Payloads_hack/README.md)
-7. [Mass assignment en APIs](05-API/api-mass-assignment/Descripcion/README.md) · [payloads](05-API/api-mass-assignment/Payloads_hack/README.md)
-8. [SSRF mediante webhooks](05-API/webhook-ssrf/Descripcion/README.md) · [payloads](05-API/webhook-ssrf/Payloads_hack/README.md)
-9. [Prompt injection en funciones web con LLM](05-API/web-llm-prompt-injection/Descripcion/README.md) · [payloads](05-API/web-llm-prompt-injection/Payloads_hack/README.md)
+1. [GraphQL Injection - Introspection Abuse](GraphQL%20Injection%20-%20Introspection%20Abuse/Descripcion/README.md) · [payloads](GraphQL%20Injection%20-%20Introspection%20Abuse/Payloads_hack/README.md)
+2. [API Key Leakage - Exposed Secrets](API%20Key%20Leakage%20-%20Exposed%20Secrets/Descripcion/README.md) · [payloads](API%20Key%20Leakage%20-%20Exposed%20Secrets/Payloads_hack/README.md)
+3. [Broken Object Level Authorization (BOLA)](Broken%20Object%20Level%20Authorization%20%28BOLA%29/Descripcion/README.md) · [payloads](Broken%20Object%20Level%20Authorization%20%28BOLA%29/Payloads_hack/README.md)
+4. [Broken Function Level Authorization (BFLA)](Broken%20Function%20Level%20Authorization%20%28BFLA%29/Descripcion/README.md) · [payloads](Broken%20Function%20Level%20Authorization%20%28BFLA%29/Payloads_hack/README.md)
+5. [Excessive Data Exposure](Excessive%20Data%20Exposure/Descripcion/README.md) · [payloads](Excessive%20Data%20Exposure/Payloads_hack/README.md)
+6. [Lack of Resources & Rate Limiting (API)](Lack%20of%20Resources%20%26%20Rate%20Limiting%20%28API%29/Descripcion/README.md) · [payloads](Lack%20of%20Resources%20%26%20Rate%20Limiting%20%28API%29/Payloads_hack/README.md)
+7. [Mass Assignment en APIs](Mass%20Assignment%20en%20APIs/Descripcion/README.md) · [payloads](Mass%20Assignment%20en%20APIs/Payloads_hack/README.md)
+8. [SSRF vía Webhooks](SSRF%20v%C3%ADa%20Webhooks/Descripcion/README.md) · [payloads](SSRF%20v%C3%ADa%20Webhooks/Payloads_hack/README.md)
+9. [Web LLM Prompt Injection](Web%20LLM%20Prompt%20Injection/Descripcion/README.md) · [payloads](Web%20LLM%20Prompt%20Injection/Payloads_hack/README.md)
 
 ## 🌐 Infraestructura y misceláneos
 
-1. [Subdomain takeover](06-Infraestructura/subdomain-takeover/Descripcion/README.md) · [payloads](06-Infraestructura/subdomain-takeover/Payloads_hack/README.md)
-2. [DNS rebinding](06-Infraestructura/dns-rebinding/Descripcion/README.md) · [payloads](06-Infraestructura/dns-rebinding/Payloads_hack/README.md)
-3. [Tabnabbing y engaño de pestañas](06-Infraestructura/tabnabbing/Descripcion/README.md) · [payloads](06-Infraestructura/tabnabbing/Payloads_hack/README.md)
-4. [Divulgación de información](06-Infraestructura/information-disclosure/Descripcion/README.md) · [payloads](06-Infraestructura/information-disclosure/Payloads_hack/README.md)
-5. [Configuración de seguridad incorrecta](06-Infraestructura/security-misconfiguration/Descripcion/README.md) · [payloads](06-Infraestructura/security-misconfiguration/Payloads_hack/README.md)
-6. [SSRF hacia metadatos cloud](06-Infraestructura/cloud-metadata-ssrf/Descripcion/README.md) · [payloads](06-Infraestructura/cloud-metadata-ssrf/Payloads_hack/README.md)
-7. [Zip Slip](06-Infraestructura/zip-slip/Descripcion/README.md) · [payloads](06-Infraestructura/zip-slip/Payloads_hack/README.md)
-8. [CORS con credenciales](06-Infraestructura/cors-credenciales/Descripcion/README.md) · [payloads](06-Infraestructura/cors-credenciales/Payloads_hack/README.md)
-9. [Clickjacking y framing](06-Infraestructura/clickjacking-framing/Descripcion/README.md) · [payloads](06-Infraestructura/clickjacking-framing/Payloads_hack/README.md)
+1. [Subdomain Takeover](Subdomain%20Takeover/Descripcion/README.md) · [payloads](Subdomain%20Takeover/Payloads_hack/README.md)
+2. [DNS Rebinding](DNS%20Rebinding/Descripcion/README.md) · [payloads](DNS%20Rebinding/Payloads_hack/README.md)
+3. [Clickbait - Tabnabbing](Clickbait%20-%20Tabnabbing/Descripcion/README.md) · [payloads](Clickbait%20-%20Tabnabbing/Payloads_hack/README.md)
+4. [Information Disclosure (debug endpoints, .git, .env expuestos, etc)](Information%20Disclosure%20%28debug%20endpoints%2C%20.git%2C%20.env%20expuestos%2C%20etc%29/Descripcion/README.md) · [payloads](Information%20Disclosure%20%28debug%20endpoints%2C%20.git%2C%20.env%20expuestos%2C%20etc%29/Payloads_hack/README.md)
+5. [Security Misconfiguration (headers faltantes, CSP débil, etc)](Security%20Misconfiguration%20%28headers%20faltantes%2C%20CSP%20d%C3%A9bil%2C%20etc%29/Descripcion/README.md) · [payloads](Security%20Misconfiguration%20%28headers%20faltantes%2C%20CSP%20d%C3%A9bil%2C%20etc%29/Payloads_hack/README.md)
+6. [SSRF a Cloud Metadata (AWS - GCP - Azure)](SSRF%20a%20Cloud%20Metadata%20%28AWS%20-%20GCP%20-%20Azure%29/Descripcion/README.md) · [payloads](SSRF%20a%20Cloud%20Metadata%20%28AWS%20-%20GCP%20-%20Azure%29/Payloads_hack/README.md)
+7. [Zip Slip](Zip%20Slip/Descripcion/README.md) · [payloads](Zip%20Slip/Payloads_hack/README.md)
+8. [Insecure CORS + Credentials](Insecure%20CORS%20%2B%20Credentials/Descripcion/README.md) · [payloads](Insecure%20CORS%20%2B%20Credentials/Payloads_hack/README.md)
+9. [Clickjacking + Framing](Clickjacking%20%2B%20Framing/Descripcion/README.md) · [payloads](Clickjacking%20%2B%20Framing/Payloads_hack/README.md)
 
 ## 📚 Referencias y criterio editorial
 

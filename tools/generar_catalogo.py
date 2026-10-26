@@ -2,13 +2,54 @@
 """Genera las guías a partir de datos editoriales revisables."""
 
 from pathlib import Path
+from urllib.parse import quote
+from importlib import import_module
+from importlib.util import find_spec
+import json
 from catalogo import CATEGORIAS, TEMAS, FUENTES
 
 RAIZ = Path(__file__).resolve().parents[1]
 
 
+def integrar_payloads():
+    modulos = (
+        'payloads_auth', 'payloads_injections', 'payloads_client',
+        'payloads_server', 'payloads_api', 'payloads_infra',
+    )
+    ampliaciones = {}
+    for nombre in modulos:
+        if find_spec(nombre) is None:
+            continue
+        datos = import_module(nombre).AMPLIACIONES
+        repetidos = set(ampliaciones) & set(datos)
+        if repetidos:
+            raise SystemExit(f'Payloads repetidos en {nombre}: {repetidos}')
+        ampliaciones.update(datos)
+    for tema in TEMAS:
+        if tema['slug'] in ampliaciones:
+            pruebas = ampliaciones[tema['slug']]
+            if len(pruebas) < 6 or any(len(p) != 6 or not p[5].startswith('https://') for p in pruebas):
+                raise SystemExit(f'Pruebas insuficientes o sin fuente: {tema["slug"]}')
+            if len({p[0] for p in pruebas}) != len(pruebas) or len({p[3] for p in pruebas}) != len(pruebas):
+                raise SystemExit(f'Pruebas duplicadas: {tema["slug"]}')
+            for prueba in pruebas:
+                if prueba[2] == 'json':
+                    try:
+                        json.loads(prueba[3])
+                    except json.JSONDecodeError as error:
+                        raise SystemExit(f'JSON inválido en {tema["slug"]}: {prueba[0]} ({error})')
+            tema['pruebas'] = [dict(zip(
+                ('nombre', 'objetivo', 'lenguaje', 'codigo', 'interpretacion', 'fuente_url'), p
+            )) for p in pruebas]
+    return set(ampliaciones)
+
+
 def enlace(tema):
-    return f"{tema['categoria']}/{tema['slug']}"
+    return tema['carpeta']
+
+
+def enlace_md(tema):
+    return quote(enlace(tema), safe='')
 
 
 def lista(items):
@@ -77,7 +118,7 @@ El límite de confianza relevante es **{tema['limite']}**. La aplicación recibe
 
 ---
 
-[← Índice general](../../../README.md) · [🗡️ Payloads y técnicas](../Payloads_hack/README.md)
+[← Índice general](../../README.md) · [🗡️ Payloads y técnicas](../Payloads_hack/README.md)
 """
 
 
@@ -93,6 +134,8 @@ def escribir_payloads(tema):
 ```
 
 **Interpretación:** {p['interpretacion']}
+
+**Fuente técnica:** [documentación de la técnica]({p.get('fuente_url', 'https://wstg.owasp.org/stable/4-Web_Application_Security_Testing/')}).
 """)
     return f"""# 🗡️ {tema['titulo']}: payloads y técnicas
 
@@ -115,11 +158,15 @@ def escribir_payloads(tema):
 
 ---
 
-[📖 Descripción y análisis](../Descripcion/README.md) · [← Índice general](../../../README.md)
+[📖 Descripción y análisis](../Descripcion/README.md) · [← Índice general](../../README.md)
 """
 
 
 def main():
+    cubiertos = integrar_payloads()
+    esperados = {t['slug'] for t in TEMAS}
+    if cubiertos != esperados:
+        raise SystemExit(f'Faltan ampliaciones: {sorted(esperados - cubiertos)}; extra: {sorted(cubiertos - esperados)}')
     if len({(t['categoria'], t['slug']) for t in TEMAS}) != len(TEMAS):
         raise SystemExit('Slug duplicado')
     for tema in TEMAS:
@@ -136,12 +183,13 @@ def main():
     secciones = []
     for categoria, rotulo in CATEGORIAS:
         filas = [t for t in TEMAS if t['categoria'] == categoria]
-        indice = "\n".join(f"{i}. [{t['titulo']}]({enlace(t)}/Descripcion/README.md) · [payloads]({enlace(t)}/Payloads_hack/README.md)" for i, t in enumerate(filas, 1))
+        indice = "\n".join(f"{i}. [{t['carpeta']}]({enlace_md(t)}/Descripcion/README.md) · [payloads]({enlace_md(t)}/Payloads_hack/README.md)" for i, t in enumerate(filas, 1))
         secciones.append(f"## {rotulo}\n\n{indice}")
     secciones_md = "\n\n".join(secciones)
+    escenarios = sum(len(t['pruebas']) for t in TEMAS)
     principal = f"""# 🛡️ Payloads Hacking M1st3rUD
 
-**Manual de campo en español para pentesting web, APIs y bug bounty autorizado.** Cada tema separa el mecanismo, contexto, variantes, evidencia y corrección de los ejemplos técnicos listos para adaptar. El catálogo contiene **{len(TEMAS)} temas**, incluyendo las categorías solapadas solicitadas: una misma raíz técnica puede tener guías de aplicación distintas.
+**Manual de campo en español para pentesting web, APIs y bug bounty autorizado.** Cada tema separa el mecanismo, contexto, variantes, evidencia y corrección de los ejemplos técnicos listos para adaptar. El catálogo contiene **{len(TEMAS)} temas y {escenarios} escenarios de prueba**, incluyendo las categorías solapadas solicitadas: una misma raíz técnica puede tener guías de aplicación distintas.
 
 > **Uso ético:** emplear solo en laboratorios, activos propios o programas con autorización y alcance vigentes. Respetar límites de frecuencia, datos, concurrencia y divulgación. Los ejemplos son pruebas mínimas; un resultado llamativo no equivale a una vulnerabilidad validada.
 
@@ -152,7 +200,7 @@ def main():
 3. Comparar con un control negativo y registrar la evidencia mínima; detenerse antes de afectar datos ajenos.
 4. Calcular severidad a partir del impacto comprobado, no del nombre de la técnica.
 
-Los directorios de cada tema contienen **exactamente dos subcarpetas**, en este orden editorial: `Descripcion/` y `Payloads_hack/`.
+Cada vulnerabilidad tiene su carpeta en la raíz, con el nombre de la lista solicitada y **exactamente dos subcarpetas**: `Descripcion/` y `Payloads_hack/`. En nombres que contenían `/`, se usa ` - ` porque la barra separa directorios en Git.
 
 {secciones_md}
 

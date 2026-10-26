@@ -3,6 +3,7 @@
 
 import re
 from pathlib import Path
+from urllib.parse import unquote
 from catalogo import CATEGORIAS, TEMAS
 
 raiz = Path(__file__).resolve().parents[1]
@@ -14,7 +15,7 @@ for tema in TEMAS:
     if key in slugs:
         errores.append(f'Slug duplicado: {key}')
     slugs.add(key)
-    carpeta = raiz / tema['categoria'] / tema['slug']
+    carpeta = raiz / tema['carpeta']
     subcarpetas = sorted(p.name for p in carpeta.iterdir() if p.is_dir())
     if subcarpetas != ['Descripcion', 'Payloads_hack']:
         errores.append(f'Subcarpetas inesperadas: {carpeta}')
@@ -31,21 +32,25 @@ for tema in TEMAS:
                 if encabezado not in texto:
                     errores.append(f'Falta {encabezado} en {doc}')
         else:
-            if len(re.findall(r'^### \d+\.', texto, re.M)) < 2:
+            escenarios = len(re.findall(r'^### \d+\.', texto, re.M))
+            if escenarios < 6:
                 errores.append(f'Faltan escenarios: {doc}')
+            if texto.count('**Fuente técnica:**') != escenarios:
+                errores.append(f'Faltan fuentes por técnica: {doc}')
 
 for doc in raiz.rglob('*.md'):
     for destino in re.findall(r'\[[^]]+\]\(([^)]+)\)', doc.read_text(encoding='utf-8')):
         if not destino.startswith(('https://', 'http://', '#')):
-            path = (doc.parent / destino.split('#', 1)[0]).resolve()
+            path = (doc.parent / unquote(destino.split('#', 1)[0])).resolve()
             if not path.exists():
                 errores.append(f'Enlace roto: {doc} -> {destino}')
 
-for categoria, _ in CATEGORIAS:
-    publicados = {p.name for p in (raiz / categoria).iterdir() if p.is_dir()}
-    esperados = {t['slug'] for t in TEMAS if t['categoria'] == categoria}
-    if publicados != esperados:
-        errores.append(f'Índice de carpetas no coincide: {categoria}')
+if len({t['carpeta'] for t in TEMAS}) != len(TEMAS):
+    errores.append('Nombres de carpetas duplicados')
+publicados = {p.name for p in raiz.iterdir() if p.is_dir() and p.name not in {'.git', 'tools'}}
+esperados = {t['carpeta'] for t in TEMAS}
+if publicados != esperados:
+    errores.append(f'Carpetas publicadas no coinciden: faltan={esperados-publicados}, sobran={publicados-esperados}')
 
 if errores:
     raise SystemExit('\n'.join(errores))
