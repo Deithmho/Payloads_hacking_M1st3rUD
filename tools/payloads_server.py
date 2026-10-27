@@ -152,7 +152,7 @@ AMPLIACIONES = {
           'Debe leerse el canary externo; un error con ruta normalizada ayuda a entender el filtro.', PATT+'Directory%20Traversal'),
         P('Ruta absoluta', 'Verificar si el prefijo base se ignora.', 'text',
           '/{RUTA_ABSOLUTA_CANARY_PROPIO}/marcador-{NONCE}.txt',
-          'Usar un archivo colocado por el tester en laboratorio; no solicitar `/etc/passwd`.', PS+'file-path-traversal'),
+          'Usar primero un archivo propio; en un laboratorio Linux, `/etc/passwd` sirve como referencia de lectura absoluta si está dentro del alcance autorizado.', PS+'file-path-traversal'),
         P('Windows con barra inversa', 'Probar normalización en un servidor Windows de laboratorio.', 'text',
           '..\\..\\marcador-{NONCE}.txt',
           'En Linux puede ser literal; verificar tecnología antes de interpretar.', PATT+'Directory%20Traversal'),

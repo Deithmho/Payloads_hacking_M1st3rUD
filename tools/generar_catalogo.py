@@ -223,6 +223,10 @@ def escribir_payloads(tema):
 - Mantener igual método, sesión, cabeceras y cuerpo salvo el campo bajo prueba.
 - Usar un marcador único como `prueba-123` para distinguir reflejos y efectos de caché.
 
+## 📚 Banco ampliado de payloads
+
+[Abrir el catálogo por técnica y los diccionarios de PayloadsAllTheThings](Catalogo_PATT.md). Los bloques de esta guía explican las pruebas iniciales; el catálogo reúne variantes adicionales por motor, parser y contexto.
+
 {bancos_md}
 
 ## 🔬 Pruebas guiadas por escenario
@@ -269,6 +273,7 @@ def main():
     secciones_md = "\n\n".join(secciones)
     escenarios = sum(len(t['pruebas']) for t in TEMAS)
     bloques_banco = sum(len(t['bancos']) for t in TEMAS)
+    estadisticas_patt = json.loads((RAIZ / 'tools/patt_stats.json').read_text(encoding='utf-8'))
     cobertura_filas = []
     for categoria, rotulo in CATEGORIAS:
         filas = [t for t in TEMAS if t['categoria'] == categoria]
@@ -279,6 +284,8 @@ def main():
     principal = f"""# 🛡️ Payloads Hacking M1st3rUD
 
 **Manual de campo en español para pentesting web, APIs y bug bounty autorizado.** Cada tema separa el mecanismo, contexto, variantes, evidencia y corrección de los ejemplos técnicos listos para adaptar. El catálogo contiene **{len(TEMAS)} temas, {bloques_banco} bloques de payloads y {escenarios} escenarios de prueba**, incluyendo las categorías solapadas solicitadas: una misma raíz técnica puede tener guías de aplicación distintas.
+
+El banco ampliado incorpora **{estadisticas_patt['documentos']} anexos técnicos, {estadisticas_patt['bloques']} bloques de código, {estadisticas_patt['inline']} variantes en línea y {estadisticas_patt['listas']} diccionarios con {estadisticas_patt['lineas_listas']} líneas** de una revisión fija de PayloadsAllTheThings. Estas cifras cuentan apariciones por tema; algunas fuentes se reutilizan donde sirven a más de una vulnerabilidad.
 
 > **Uso ético:** emplear solo en laboratorios, activos propios o programas con autorización y alcance vigentes. Respetar límites de frecuencia, datos, concurrencia y divulgación. Los ejemplos son pruebas mínimas; un resultado llamativo no equivale a una vulnerabilidad validada.
 
@@ -292,8 +299,9 @@ def main():
 
 1. Abrir `Descripcion/README.md` para entender el límite de confianza y la señal de confirmación.
 2. En `Payloads_hack/README.md`, empezar por **Payloads básicos**, elegir una variante por contexto y consultar las pruebas guiadas para interpretar el resultado.
-3. Comparar con un control negativo y registrar la evidencia mínima; detenerse antes de afectar datos ajenos.
-4. Calcular severidad a partir del impacto comprobado, no del nombre de la técnica.
+3. Abrir `Payloads_hack/Catalogo_PATT.md` para las variantes por motor, codificación y tecnología, y para descargar los diccionarios cuando existan.
+4. Comparar con un control negativo y registrar la evidencia mínima; detenerse antes de afectar datos ajenos.
+5. Calcular severidad a partir del impacto comprobado, no del nombre de la técnica.
 
 Cada vulnerabilidad tiene su carpeta en la raíz, con el nombre de la lista solicitada y **exactamente dos subcarpetas**: `Descripcion/` y `Payloads_hack/`. En nombres que contenían `/`, se usa ` - ` porque la barra separa directorios en Git.
 
@@ -303,8 +311,12 @@ Cada vulnerabilidad tiene su carpeta en la raíz, con el nombre de la lista soli
 
 - [OWASP WSTG](https://wstg.owasp.org/stable/4-Web_Application_Security_Testing/), [OWASP Top 10:2025](https://top10.owasp.org/2025/0x00_2025-Introduction/) y [OWASP API Security Top 10:2023](https://api-security.owasp.org/editions/2023/en/0x11-t10/) aportan taxonomía y metodología.
 - [PortSwigger Web Security Academy](https://portswigger.net/web-security/all-topics) aporta mecanismos y laboratorios reproducibles.
-- [HackTricks](https://book.hacktricks.wiki/) y [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings) inspiran la navegación operativa. El texto de este proyecto es original y las técnicas se contrastan con referencias enlazadas en cada guía.
+- [HackTricks](https://book.hacktricks.wiki/) aporta referencias técnicas. Los anexos identificados como PATT reproducen o adaptan código y listas de [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings) bajo su [licencia MIT](LICENCIA_PATT.md), con enlace a cada documento de origen.
 - [YesWeHack, análisis de confusión sintáctica](https://www.yeswehack.com/learn-bug-bounty/syntax-confusion-ambiguous-parsing-exploits) y [PortSwigger Research](https://portswigger.net/research/) se usan como ejemplos de investigación pública. [Fuentes y criterios](FUENTES.md) explica la diferencia entre una investigación pública, un laboratorio y un relato secundario.
+
+## 🔄 Origen y reproducción del banco ampliado
+
+Los anexos proceden de la revisión `3ac27901c711bdf3f5b65a7b1d1820a1f65bd09a` de PayloadsAllTheThings. La [correspondencia de temas](tools/patt_mapa.py) y el [importador](tools/importar_patt.py) permiten regenerarlos desde una copia local de esa revisión con `python3 tools/importar_patt.py --upstream /ruta/a/PayloadsAllTheThings`. Después, ejecutar `python3 tools/generar_catalogo.py` y `python3 tools/validar_catalogo.py`. El banco reúne documentos y listas de texto pertinentes al pentesting web/API; no es una réplica de imágenes, binarios ni archivos de claves del proyecto original.
 
 ## 🧾 Contribuciones y calidad
 
@@ -312,7 +324,7 @@ Las mejoras deben mantener la estructura, explicar precondiciones, incluir una p
 
 ---
 
-**Créditos:** OWASP, PortSwigger, HackTricks, PayloadsAllTheThings y autores de investigaciones públicas citadas. Los enlaces se ofrecen como fuentes, no como reproducción de sus textos.
+**Créditos:** OWASP, PortSwigger, HackTricks, PayloadsAllTheThings y autores de investigaciones públicas citadas. Los anexos PATT contienen material de terceros identificado y licenciado; las guías explicativas y la organización en español son aportaciones de este repositorio.
 """
     (RAIZ / 'README.md').write_text(principal, encoding='utf-8')
     print(f"Generadas {len(TEMAS)} guías en {len(CATEGORIAS)} categorías")

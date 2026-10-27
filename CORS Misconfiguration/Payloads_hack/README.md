@@ -8,6 +8,10 @@
 - Mantener igual método, sesión, cabeceras y cuerpo salvo el campo bajo prueba.
 - Usar un marcador único como `prueba-123` para distinguir reflejos y efectos de caché.
 
+## 📚 Banco ampliado de payloads
+
+[Abrir el catálogo por técnica y los diccionarios de PayloadsAllTheThings](Catalogo_PATT.md). Los bloques de esta guía explican las pruebas iniciales; el catálogo reúne variantes adicionales por motor, parser y contexto.
+
 > **Lectura del banco:** cuando un bloque enumera varias URL, rutas, cabeceras o cuerpos, cada línea suele ser una alternativa. Elegir la variante que corresponde al motor, parser y flujo real.
 
 ## 💉 Payloads básicos
